@@ -35,6 +35,7 @@ function showUsage() {
     echo "  -n              Restart immediately (no confirmation)"
     echo "  -c              Cancel any scheduled restart"
     echo "  -s              Show current restart status"
+    echo "  --check         Quick status check with multiple methods"
     echo "  -t              Test mode (show what would happen, don't execute)"
     echo "  -v              Verbose output"
     echo "  --help          Show this help message"
@@ -99,26 +100,61 @@ function showRestartStatus() {
     echo " System Restart Status"
     echo "====================================="
     
-    # Check if shutdown is scheduled
-    if pgrep shutdown > /dev/null 2>&1; then
-        echo "Status: Restart is SCHEDULED"
-        
-        # Try to get shutdown message from wall or logs
-        shutdown_info=$(wall < /dev/null 2>&1 | grep -i "shutdown\|restart\|reboot" | head -1)
-        if [ -n "$shutdown_info" ]; then
-            echo "Details: $shutdown_info"
+    # Check multiple ways for scheduled shutdown/restart
+    local restart_scheduled=false
+    local restart_info=""
+    
+    # Method 1: Check for shutdown command process
+    if pgrep -f "shutdown.*-r" > /dev/null 2>&1; then
+        restart_scheduled=true
+        restart_info="Shutdown process detected"
+    fi
+    
+    # Method 2: Check systemd shutdown target
+    if systemctl list-jobs | grep -q "shutdown.target\|reboot.target"; then
+        restart_scheduled=true
+        restart_info="System shutdown/reboot job active"
+    fi
+    
+    # Method 3: Check for shutdown schedule file
+    if [ -f /run/systemd/shutdown/scheduled ]; then
+        restart_scheduled=true
+        restart_info="Systemd shutdown scheduled"
+        # Try to read the schedule details
+        if [ -r /run/systemd/shutdown/scheduled ]; then
+            schedule_details=$(cat /run/systemd/shutdown/scheduled 2>/dev/null)
+            if [ -n "$schedule_details" ]; then
+                restart_info="$restart_info - $schedule_details"
+            fi
         fi
+    fi
+    
+    # Method 4: Check recent systemd journal logs
+    recent_shutdown=$(journalctl --no-pager -n 10 --since "5 minutes ago" 2>/dev/null | grep -i "scheduled.*shutdown\|scheduled.*reboot" | tail -1)
+    if [ -n "$recent_shutdown" ]; then
+        restart_scheduled=true
+        restart_info="Recent schedule: $recent_shutdown"
+    fi
+    
+    # Display results
+    if [ "$restart_scheduled" = true ]; then
+        echo "Status: Restart is SCHEDULED"
+        echo "Details: $restart_info"
         
-        # Check system logs for shutdown schedule
-        log_info=$(journalctl -u systemd-shutdownd --no-pager -n 5 2>/dev/null | grep -i "scheduled\|shutdown" | tail -1)
-        if [ -n "$log_info" ]; then
-            echo "Log: $log_info"
+        # Try to get more specific timing information
+        shutdown_msg=$(wall 2>&1 | grep -i "reboot\|shutdown" | head -1)
+        if [ -n "$shutdown_msg" ]; then
+            echo "Message: $shutdown_msg"
         fi
     else
         echo "Status: No restart scheduled"
+        echo "Note: If you just scheduled a restart, it may take a moment to appear in status"
     fi
     
     echo "Current time: $(date +'%a %Y-%m-%d %T %Z')"
+    echo ""
+    echo "To check if a restart was recently scheduled:"
+    echo "  journalctl --no-pager -n 5 | grep -i shutdown"
     echo "====================================="
 }
 
@@ -222,6 +258,18 @@ function systemReboot() {
                 ;;
             -s|--status)
                 showRestartStatus
+                return 0
+                ;;
+            --check)
+                echo "Quick status check methods:"
+                echo "1. Check for shutdown processes:"
+                ps aux | grep -E "[s]hutdown|[r]eboot" 
+                echo ""
+                echo "2. Check systemd jobs:"
+                systemctl list-jobs 2>/dev/null | grep -E "shutdown|reboot" || echo "No shutdown/reboot jobs"
+                echo ""
+                echo "3. Check recent logs:"
+                journalctl --no-pager -n 5 --since "2 minutes ago" 2>/dev/null | grep -i -E "shutdown|reboot|restart" || echo "No recent shutdown logs"
                 return 0
                 ;;
             -t|--test)
