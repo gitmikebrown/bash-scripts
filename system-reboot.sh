@@ -55,6 +55,90 @@ function showUsage() {
     echo "====================================="
 }
 
+function validateTimeInput() {
+    local value=$1
+    local unit=$2
+    
+    # Check if value is numeric
+    if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo "Error: '$value' is not a valid number"
+        return 1
+    fi
+    
+    # Validate ranges based on unit
+    case "$unit" in
+        "minutes")
+            if [ "$value" -lt 1 ] || [ "$value" -gt 1440 ]; then
+                echo "Error: Minutes must be between 1 and 1440 (24 hours)"
+                return 1
+            fi
+            ;;
+        "hours")
+            if [ "$value" -lt 1 ] || [ "$value" -gt 24 ]; then
+                echo "Error: Hours must be between 1 and 24"
+                return 1
+            fi
+            ;;
+        "days")
+            if [ "$value" -lt 1 ] || [ "$value" -gt 7 ]; then
+                echo "Error: Days must be between 1 and 7"
+                return 1
+            fi
+            ;;
+        *)
+            echo "Error: Invalid time unit '$unit'"
+            return 1
+            ;;
+    esac
+    
+    return 0
+}
+
+function showRestartStatus() {
+    echo "====================================="
+    echo " System Restart Status"
+    echo "====================================="
+    
+    # Check if shutdown is scheduled
+    if pgrep shutdown > /dev/null 2>&1; then
+        echo "Status: Restart is SCHEDULED"
+        
+        # Try to get shutdown message from wall or logs
+        shutdown_info=$(wall < /dev/null 2>&1 | grep -i "shutdown\|restart\|reboot" | head -1)
+        if [ -n "$shutdown_info" ]; then
+            echo "Details: $shutdown_info"
+        fi
+        
+        # Check system logs for shutdown schedule
+        log_info=$(journalctl -u systemd-shutdownd --no-pager -n 5 2>/dev/null | grep -i "scheduled\|shutdown" | tail -1)
+        if [ -n "$log_info" ]; then
+            echo "Log: $log_info"
+        fi
+    else
+        echo "Status: No restart scheduled"
+    fi
+    
+    echo "Current time: $(date +'%a %Y-%m-%d %T %Z')"
+    echo "====================================="
+}
+
+function testMode() {
+    local minutes=$1
+    
+    echo "====================================="
+    echo " TEST MODE - No actual restart"
+    echo "====================================="
+    echo "Would schedule restart in: $minutes minutes"
+    echo "Current time: $(date +'%a %Y-%m-%d %T %Z')"
+    
+    # Calculate restart time
+    restart_time=$(date -d "+$minutes minutes" +'%a %Y-%m-%d %T %Z' 2>/dev/null || echo "$minutes minutes from now")
+    echo "Scheduled restart time: $restart_time"
+    
+    echo "Command that would be executed: sudo shutdown -r +$minutes"
+    echo "====================================="
+}
+
 function systemReboot() {
     # Text colors
     local text_Red='\033[0;31m'
