@@ -103,58 +103,80 @@ function showRestartStatus() {
     # Check multiple ways for scheduled shutdown/restart
     local restart_scheduled=false
     local restart_info=""
+    local restart_time=""
     
     # Method 1: Check for shutdown command process
     if pgrep -f "shutdown.*-r" > /dev/null 2>&1; then
         restart_scheduled=true
-        restart_info="Shutdown process detected"
+        restart_info="System restart scheduled via shutdown command"
     fi
     
     # Method 2: Check systemd shutdown target
     if systemctl list-jobs | grep -q "shutdown.target\|reboot.target"; then
         restart_scheduled=true
-        restart_info="System shutdown/reboot job active"
+        restart_info="System restart scheduled via systemd"
     fi
     
-    # Method 3: Check for shutdown schedule file
+    # Method 3: Check for shutdown schedule file and extract useful info
     if [ -f /run/systemd/shutdown/scheduled ]; then
         restart_scheduled=true
-        restart_info="Systemd shutdown scheduled"
-        # Try to read the schedule details
+        
+        # Try to parse the schedule file for timestamp
         if [ -r /run/systemd/shutdown/scheduled ]; then
-            schedule_details=$(cat /run/systemd/shutdown/scheduled 2>/dev/null)
-            if [ -n "$schedule_details" ]; then
-                restart_info="$restart_info - $schedule_details"
+            schedule_content=$(cat /run/systemd/shutdown/scheduled 2>/dev/null)
+            
+            # Extract USEC timestamp and convert to readable time
+            usec_timestamp=$(echo "$schedule_content" | grep "USEC=" | cut -d'=' -f2)
+            if [ -n "$usec_timestamp" ] && command -v date >/dev/null 2>&1; then
+                # Convert microseconds to seconds
+                timestamp_sec=$((usec_timestamp / 1000000))
+                restart_time=$(date -d "@$timestamp_sec" +'%a %Y-%m-%d %H:%M:%S %Z' 2>/dev/null)
             fi
+            
+            # Extract mode information
+            mode=$(echo "$schedule_content" | grep "MODE=" | cut -d'=' -f2)
+            case "$mode" in
+                "reboot") restart_info="System restart (reboot) scheduled" ;;
+                "halt") restart_info="System halt scheduled" ;;
+                "poweroff") restart_info="System shutdown (poweroff) scheduled" ;;
+                *) restart_info="System restart scheduled" ;;
+            esac
         fi
     fi
     
-    # Method 4: Check recent systemd journal logs
-    recent_shutdown=$(journalctl --no-pager -n 10 --since "5 minutes ago" 2>/dev/null | grep -i "scheduled.*shutdown\|scheduled.*reboot" | tail -1)
-    if [ -n "$recent_shutdown" ]; then
-        restart_scheduled=true
-        restart_info="Recent schedule: $recent_shutdown"
-    fi
+    # Method 4: Check recent systemd journal logs for more context
+    recent_shutdown=$(journalctl --no-pager -n 5 --since "10 minutes ago" 2>/dev/null | grep -i "scheduled.*shutdown\|scheduled.*reboot" | tail -1)
     
     # Display results
     if [ "$restart_scheduled" = true ]; then
-        echo "Status: Restart is SCHEDULED"
-        echo "Details: $restart_info"
+        echo "Status: ✓ Restart is SCHEDULED"
+        echo ""
+        echo "Type: $restart_info"
         
-        # Try to get more specific timing information
-        shutdown_msg=$(wall 2>&1 | grep -i "reboot\|shutdown" | head -1)
-        if [ -n "$shutdown_msg" ]; then
-            echo "Message: $shutdown_msg"
+        if [ -n "$restart_time" ]; then
+            echo "Scheduled time: $restart_time"
+        else
+            echo "Scheduled time: Information not available"
         fi
+        
+        echo "Current time: $(date +'%a %Y-%m-%d %H:%M:%S %Z')"
+        echo ""
+        echo "Actions you can take:"
+        echo "  • Cancel restart: $0 -c"
+        echo "  • Check again: $0 -s"
+        echo "  • View detailed logs: journalctl -n 10 | grep -i shutdown"
+        
     else
-        echo "Status: No restart scheduled"
-        echo "Note: If you just scheduled a restart, it may take a moment to appear in status"
+        echo "Status: ✗ No restart scheduled"
+        echo ""
+        echo "Current time: $(date +'%a %Y-%m-%d %H:%M:%S %Z')"
+        echo ""
+        echo "To schedule a restart:"
+        echo "  • In 30 minutes: $0 -m 30"
+        echo "  • In 2 hours: $0 -h 2"
+        echo "  • View all options: $0 --help"
     fi
     
-    echo "Current time: $(date +'%a %Y-%m-%d %T %Z')"
-    echo ""
-    echo "To check if a restart was recently scheduled:"
-    echo "  journalctl --no-pager -n 5 | grep -i shutdown"
     echo "====================================="
 }
 
