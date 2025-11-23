@@ -19,12 +19,24 @@
 #   ./setup-dev-env.sh
 #
 # Run with command line options:
-#   ./setup-dev-env.sh                  # Starts the interactive menu
-#   ./setup-dev-env.sh --install-all    # Install all development tools
-#   ./setup-dev-env.sh --install-python # Install Python only
-#   ./setup-dev-env.sh --install-nodejs # Install Node.js only
-#   ./setup-dev-env.sh --install-docker # Install Docker only
-#   ./setup-dev-env.sh --help           # Show help information
+#   ./setup-dev-env.sh                       # Starts the interactive menu
+#   ./setup-dev-env.sh --install-all         # Install all development tools
+#   ./setup-dev-env.sh --install-python      # Install Python only
+#   ./setup-dev-env.sh --install-nodejs      # Install Node.js only
+#   ./setup-dev-env.sh --install-git         # Install Git only
+#   ./setup-dev-env.sh --install-curl        # Install curl only
+#   ./setup-dev-env.sh --install-wget        # Install wget only
+#   ./setup-dev-env.sh --install-make        # Install make only
+#   ./setup-dev-env.sh --install-docker      # Install Docker only
+#   ./setup-dev-env.sh --install-docker-compose  # Install Docker Compose only
+#   ./setup-dev-env.sh --install-zip         # Install zip/unzip only
+#   ./setup-dev-env.sh --install-golang      # Install Golang only
+#   ./setup-dev-env.sh --install-php         # Install PHP only
+#   ./setup-dev-env.sh --install-aws         # Install AWS CLI only
+#   ./setup-dev-env.sh --install-azure       # Install Azure CLI only
+#   ./setup-dev-env.sh --install-gcloud      # Install Google Cloud SDK only
+#   ./setup-dev-env.sh --install-terraform   # Install Terraform only
+#   ./setup-dev-env.sh --help                # Show help information
 
 # COMMON SCENARIOS:
 #
@@ -33,27 +45,35 @@
 #
 # 2. Interactive installation (menu-driven):
 #    ./setup-dev-env.sh
-#    Then select options 1-11 from the menu
+#    Then select options 1-18 from the menu
 #
 # 3. Install specific tools:
 #    ./setup-dev-env.sh --install-python
 #    ./setup-dev-env.sh --install-docker
+#    ./setup-dev-env.sh --install-aws
+#    ./setup-dev-env.sh --install-terraform
 
 # MENU OPTIONS EXPLAINED:
 # When you run ./setup-dev-env.sh, you'll see a menu with these options:
-#   1. Install Python             - Installs Python 3 and pip
-#   2. Install Node.js & npm      - Installs Node.js and npm package manager
-#   3. Install Git                - Installs Git version control
-#   4. Install curl               - Installs curl for HTTP requests
-#   5. Install make               - Installs build-essential (make, gcc, g++)
-#   6. Install Docker             - Installs Docker Engine and Docker Compose
-#   7. Install zip/unzip          - Installs zip and unzip utilities
-#   8. Install Golang             - Installs Go programming language
-#   9. Install PHP                - Installs PHP and common extensions
-#   10. Install All Tools         - Installs all development tools
-#   11. Show Installed Versions   - Display versions of installed tools
-#   12. Help                      - Show usage information
-#   0. Exit                       - Quit the script
+#   1. Install Python               - Installs Python 3 and pip
+#   2. Install Node.js & npm        - Installs Node.js and npm package manager
+#   3. Install Git                  - Installs Git version control
+#   4. Install curl                 - Installs curl for HTTP requests
+#   5. Install wget                 - Installs wget file download utility
+#   6. Install make                 - Installs build-essential (make, gcc, g++)
+#   7. Install Docker               - Installs Docker Engine and Docker Compose
+#   8. Install Docker Compose       - Installs Docker Compose (standalone)
+#   9. Install zip/unzip            - Installs zip and unzip utilities
+#   10. Install Golang              - Installs Go programming language
+#   11. Install PHP                 - Installs PHP and common extensions
+#   12. Install AWS CLI             - Installs Amazon Web Services CLI
+#   13. Install Azure CLI           - Installs Microsoft Azure CLI
+#   14. Install Google Cloud SDK    - Installs Google Cloud Platform tools
+#   15. Install Terraform           - Installs Terraform infrastructure tool
+#   16. Install All Tools           - Installs all development tools
+#   17. Show Installed Versions     - Display versions of installed tools
+#   18. Help                        - Show usage information
+#   0. Exit                         - Quit the script
 
 ################################################################################################
 #### Configurable Variables
