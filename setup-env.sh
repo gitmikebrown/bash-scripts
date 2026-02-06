@@ -1,10 +1,12 @@
 #!/bin/bash
-# File: setup-dev-env.sh
+# File: setup-env.sh
 # Author: Michael Brown
-# Version: 1.0.0
-# Date: November 20, 2025
+# Version: 1.0.1
+# Date: January 29, 2026
 # Description: Menu-driven development environment setup script for Ubuntu/Debian systems
-#              Installs and configures Python, Node.js, Git, curl, make, Docker, zip, Golang, and PHP
+#              Installs and configures common dev tools including Python, Node.js, Git, curl, wget,
+#              make/build tools, Docker, Docker Compose, zip/unzip, Golang, PHP, AWS/Azure/GCloud CLIs,
+#              Terraform, OpenSSL, OpenSSH, Composer, Laravel deps, Vim, and Postman CLI
 
 ################################################################################################
 #### HOW TO USE THIS SCRIPT - Examples and Quick Reference
@@ -12,75 +14,90 @@
 
 # BASIC USAGE:
 # Make the script executable first:
-#   chmod +x setup-dev-env.sh
+#   chmod +x setup-env.sh
 #
 # Run in interactive menu mode (shows a numbered menu with options):
 # Simply run the script without any parameters - this starts the interactive menu
-#   ./setup-dev-env.sh
+#   ./setup-env.sh
 #
 # Run with command line options:
-#   ./setup-dev-env.sh                       # Starts the interactive menu
-#   ./setup-dev-env.sh --install-all         # Install all development tools
-#   ./setup-dev-env.sh --install-python      # Install Python only
-#   ./setup-dev-env.sh --install-nodejs      # Install Node.js only
-#   ./setup-dev-env.sh --install-git         # Install Git only
-#   ./setup-dev-env.sh --install-curl        # Install curl only
-#   ./setup-dev-env.sh --install-wget        # Install wget only
-#   ./setup-dev-env.sh --install-make        # Install make only
-#   ./setup-dev-env.sh --install-docker      # Install Docker only
-#   ./setup-dev-env.sh --install-docker-compose  # Install Docker Compose only
-#   ./setup-dev-env.sh --install-zip         # Install zip/unzip only
-#   ./setup-dev-env.sh --install-golang      # Install Golang only
-#   ./setup-dev-env.sh --install-php         # Install PHP only
-#   ./setup-dev-env.sh --install-aws         # Install AWS CLI only
-#   ./setup-dev-env.sh --install-azure       # Install Azure CLI only
-#   ./setup-dev-env.sh --install-gcloud      # Install Google Cloud SDK only
-#   ./setup-dev-env.sh --install-terraform   # Install Terraform only
-#   ./setup-dev-env.sh --help                # Show help information
+#   ./setup-env.sh                  # Starts the interactive menu
+#   ./setup-env.sh --install-all    # Install all development tools
+#   ./setup-env.sh --install-python         # Install Python only
+#   ./setup-env.sh --install-nodejs         # Install Node.js only
+#   ./setup-env.sh --install-git            # Install Git only
+#   ./setup-env.sh --install-curl           # Install curl only
+#   ./setup-env.sh --install-wget           # Install wget only
+#   ./setup-env.sh --install-make           # Install make/build tools only
+#   ./setup-env.sh --install-docker         # Install Docker only
+#   ./setup-env.sh --install-docker-compose # Install Docker Compose only
+#   ./setup-env.sh --install-zip            # Install zip/unzip only
+#   ./setup-env.sh --install-golang         # Install Golang only
+#   ./setup-env.sh --install-php            # Install PHP only
+#   ./setup-env.sh --install-aws            # Install AWS CLI only
+#   ./setup-env.sh --install-azure          # Install Azure CLI only
+#   ./setup-env.sh --install-gcloud         # Install Google Cloud SDK only
+#   ./setup-env.sh --install-terraform      # Install Terraform only
+#   ./setup-env.sh --install-openssl        # Install OpenSSL only
+#   ./setup-env.sh --install-openssh        # Install OpenSSH server only
+#   ./setup-env.sh --install-composer       # Install Composer only
+#   ./setup-env.sh --install-laravel-deps   # Install Laravel dependencies
+#   ./setup-env.sh --install-vim            # Install Vim only
+#   ./setup-env.sh --install-postman        # Install Postman CLI only
+#   ./setup-env.sh --system-update          # Run system update and cleanup
+#   ./setup-env.sh --install-packages pkg1 pkg2 ... # Install a list of packages
+#   ./setup-env.sh --help           # Show help information
 
 # COMMON SCENARIOS:
 #
 # 1. First time setup - install everything:
-#    ./setup-dev-env.sh --install-all
+#    ./setup-env.sh --install-all
 #
 # 2. Interactive installation (menu-driven):
-#    ./setup-dev-env.sh
-#    Then select options 1-18 from the menu
+#    ./setup-env.sh
+#    Then select options 1-23 from the menu (you can enter multiple numbers separated by spaces)
 #
 # 3. Install specific tools:
-#    ./setup-dev-env.sh --install-python
-#    ./setup-dev-env.sh --install-docker
-#    ./setup-dev-env.sh --install-aws
-#    ./setup-dev-env.sh --install-terraform
+#    ./setup-env.sh --install-python
+#    ./setup-env.sh --install-docker
+
+# 4. Install Laravel dependencies:
+#    ./setup-env.sh --install-laravel-deps
 
 # MENU OPTIONS EXPLAINED:
-# When you run ./setup-dev-env.sh, you'll see a menu with these options:
-#   1. Install Python               - Installs Python 3 and pip
-#   2. Install Node.js & npm        - Installs Node.js and npm package manager
-#   3. Install Git                  - Installs Git version control
-#   4. Install curl                 - Installs curl for HTTP requests
-#   5. Install wget                 - Installs wget file download utility
-#   6. Install make                 - Installs build-essential (make, gcc, g++)
-#   7. Install Docker               - Installs Docker Engine and Docker Compose
-#   8. Install Docker Compose       - Installs Docker Compose (standalone)
-#   9. Install zip/unzip            - Installs zip and unzip utilities
-#   10. Install Golang              - Installs Go programming language
-#   11. Install PHP                 - Installs PHP and common extensions
-#   12. Install AWS CLI             - Installs Amazon Web Services CLI
-#   13. Install Azure CLI           - Installs Microsoft Azure CLI
-#   14. Install Google Cloud SDK    - Installs Google Cloud Platform tools
-#   15. Install Terraform           - Installs Terraform infrastructure tool
-#   16. Install All Tools           - Installs all development tools
-#   17. Show Installed Versions     - Display versions of installed tools
-#   18. Help                        - Show usage information
-#   0. Exit                         - Quit the script
+# When you run ./setup-env.sh, you'll see a menu with these options.
+# You can select one option or multiple options by entering numbers separated by spaces (e.g., 3 5 9 11 19).
+#   1. Install Python             - Installs Python 3 and pip
+#   2. Install Node.js & npm      - Installs Node.js and npm package manager
+#   3. Install Git                - Installs Git version control
+#   4. Install curl               - Installs curl for HTTP requests
+#   5. Install wget               - Installs wget for file downloads
+#   6. Install make               - Installs build-essential (make, gcc, g++)
+#   7. Install Docker             - Installs Docker Engine
+#   8. Install Docker Compose     - Installs Docker Compose (standalone)
+#   9. Install zip/unzip          - Installs zip and unzip utilities
+#   10. Install Golang            - Installs Go programming language
+#   11. Install PHP               - Installs PHP and common extensions
+#   12. Install AWS CLI           - Installs AWS CLI
+#   13. Install Azure CLI         - Installs Azure CLI
+#   14. Install Google Cloud SDK  - Installs Google Cloud SDK
+#   15. Install Terraform         - Installs Terraform
+#   16. Install OpenSSL           - Installs OpenSSL
+#   17. Install Composer          - Installs Composer
+#   18. Install Laravel Deps      - Installs Laravel dependencies
+#   19. Install Vim               - Installs Vim editor
+#   20. Install Postman CLI        - Installs Postman CLI
+#   21. Install All Tools          - Installs all development tools
+#   22. Show Installed Versions    - Display versions of installed tools
+#   23. Help                       - Show usage information
+#   0. Exit                       - Quit the script
 
 ################################################################################################
 #### Configurable Variables
 ################################################################################################
 
 # Define script version
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 
 # Enable or disable logging (true/false)
 LOGGING_ENABLED=false
@@ -88,6 +105,13 @@ LOGFILE="/var/log/dev-setup-script.log"
 
 # Quiet mode (suppress non-essential output)
 QUIET_MODE=false
+
+# Non-interactive mode (skip pauses for CLI usage)
+NON_INTERACTIVE=false
+
+# Git global identity
+GIT_USER_NAME="gitmikebrown"
+GIT_USER_EMAIL="123339553+gitmikebrown@users.noreply.github.com"
 
 # Cache for detected package manager
 DETECTED_PKG_MANAGER=""
@@ -153,12 +177,37 @@ function terminalOutput() {
 ################################################################################################
 
 function pause(){
+    if [ "$NON_INTERACTIVE" = true ]; then
+        return
+    fi
     read -p "Press [Enter] to return to the menu..."
 }
 
 function confirm(){
     read -p "$1 [y/N]: " response
     [[ "$response" =~ ^[Yy]$ ]]
+}
+
+function ensurePackages() {
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+
+    if [ "$#" -eq 0 ]; then
+        return 0
+    fi
+
+    if [ "$pkgManager" = "apt" ]; then
+        sudo apt update
+        sudo apt install -y "$@"
+    elif [ "$pkgManager" = "yum" ]; then
+        sudo yum install -y "$@"
+    elif [ "$pkgManager" = "dnf" ]; then
+        sudo dnf install -y "$@"
+    else
+        terminalOutput "Error: Unsupported package manager"
+        log "Package installation failed - unsupported package manager"
+        return 1
+    fi
 }
 
 ################################################################################################
@@ -203,6 +252,8 @@ function installNodeJS() {
     terminalOutput " Installing Node.js and npm"
     terminalOutput "======================================"
     log "Starting Node.js installation"
+
+    ensurePackages curl
     
     if [ "$pkgManager" = "apt" ]; then
         # Install Node.js LTS via NodeSource repository
@@ -253,6 +304,8 @@ function installGit() {
     
     terminalOutput "Git installation complete!"
     git --version
+    git config --global user.name "$GIT_USER_NAME"
+    git config --global user.email "$GIT_USER_EMAIL"
     log "Git installation complete"
     pause
 }
@@ -316,6 +369,37 @@ function installMake() {
     gcc --version
     log "build-essential installation complete"
     pause
+}
+
+function runSystemUpdate() {
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+
+    terminalOutput "======================================"
+    terminalOutput " Running System Update"
+    terminalOutput "======================================"
+    log "Starting system update"
+
+    if [ "$pkgManager" = "apt" ]; then
+        sudo apt -y -qq update
+        sudo apt -y -qq upgrade
+        sudo apt -y -qq dist-upgrade
+        sudo apt -y -qq autoremove
+        sudo apt -y -qq autoclean
+    elif [ "$pkgManager" = "yum" ]; then
+        sudo yum -y update
+        sudo yum -y autoremove || true
+    elif [ "$pkgManager" = "dnf" ]; then
+        sudo dnf -y upgrade
+        sudo dnf -y autoremove || true
+    else
+        terminalOutput "Error: Unsupported package manager"
+        log "System update failed - unsupported package manager"
+        return 1
+    fi
+
+    terminalOutput "System update complete!"
+    log "System update complete"
 }
 
 function installDocker() {
@@ -418,6 +502,8 @@ function installGolang() {
     terminalOutput " Installing Golang"
     terminalOutput "======================================"
     log "Starting Golang installation"
+
+    ensurePackages curl
     
     # Detect architecture
     local ARCH=$(uname -m)
@@ -435,7 +521,7 @@ function installGolang() {
     
     # Get latest Go version from official API
     terminalOutput "Fetching latest Go version..."
-    local GO_VERSION=$(curl -s https://go.dev/dl/?mode=json | grep -o '"version":"[^"]*' | head -n 1 | cut -d'"' -f4)
+    local GO_VERSION=$(curl -s https://go.dev/dl/?mode=json | grep -m 1 -E '"version"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4)
     
     if [ -z "$GO_VERSION" ]; then
         terminalOutput "Error: Failed to fetch latest Go version"
@@ -469,7 +555,16 @@ function installGolang() {
     rm -f "$GO_TARBALL"
     
     # Add Go to PATH if not already present
-    local PROFILE_FILES=("/etc/profile" "$HOME/.profile" "$HOME/.bashrc")
+    local TARGET_HOME="$HOME"
+    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+        TARGET_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    fi
+
+    if [ -z "$TARGET_HOME" ]; then
+        TARGET_HOME="$HOME"
+    fi
+
+    local PROFILE_FILES=("/etc/profile" "$TARGET_HOME/.profile" "$TARGET_HOME/.bashrc")
     local GO_PATH_ENTRY='export PATH=$PATH:/usr/local/go/bin'
     
     for PROFILE in "${PROFILE_FILES[@]}"; do
@@ -528,6 +623,8 @@ function installDockerCompose() {
     terminalOutput " Installing Docker Compose (standalone)"
     terminalOutput "======================================"
     log "Starting Docker Compose installation"
+
+    ensurePackages curl
     
     # Get latest Docker Compose version
     terminalOutput "Fetching latest Docker Compose version..."
@@ -568,6 +665,48 @@ function installDockerCompose() {
     pause
 }
 
+function installOpenSSHServer() {
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+
+    terminalOutput "======================================"
+    terminalOutput " Installing OpenSSH Server"
+    terminalOutput "======================================"
+    log "Starting OpenSSH server installation"
+
+    if [ "$pkgManager" = "apt" ]; then
+        sudo apt update
+        sudo apt install -y openssh-server
+    elif [ "$pkgManager" = "yum" ]; then
+        sudo yum install -y openssh-server
+    elif [ "$pkgManager" = "dnf" ]; then
+        sudo dnf install -y openssh-server
+    else
+        terminalOutput "Error: Unsupported package manager"
+        log "OpenSSH installation failed - unsupported package manager"
+        return 1
+    fi
+
+    # Configure SSH server
+    sudo mkdir -p /var/run/sshd
+    sudo sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+    sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    sudo sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
+
+    if command -v ufw >/dev/null 2>&1; then
+        sudo ufw allow ssh
+    fi
+
+    if command -v systemctl >/dev/null 2>&1; then
+        sudo systemctl enable --now ssh 2>/dev/null || sudo systemctl enable --now sshd
+    else
+        sudo service ssh start 2>/dev/null || sudo service sshd start
+    fi
+
+    terminalOutput "OpenSSH server installation complete!"
+    log "OpenSSH server installation complete"
+}
+
 function installWget() {
     local pkgManager
     pkgManager=$(detectPackageManager)
@@ -602,6 +741,8 @@ function installAWSCLI() {
     terminalOutput " Installing AWS CLI"
     terminalOutput "======================================"
     log "Starting AWS CLI installation"
+
+    ensurePackages curl unzip
     
     # Detect architecture
     local ARCH=$(uname -m)
@@ -708,13 +849,17 @@ function installGoogleCloudSDK() {
     terminalOutput " Installing Google Cloud SDK"
     terminalOutput "======================================"
     log "Starting Google Cloud SDK installation"
+
+    ensurePackages curl gnupg
     
     if [ "$pkgManager" = "apt" ]; then
         # Add Cloud SDK repo
-        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+        sudo mkdir -p /usr/share/keyrings
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list > /dev/null
         
-        # Import Google Cloud public key
-        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+        # Import Google Cloud public key (overwrite if it exists)
+        sudo rm -f /usr/share/keyrings/cloud.google.gpg
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/cloud.google.gpg
         
         # Install SDK
         sudo apt update
@@ -766,6 +911,8 @@ function installTerraform() {
     terminalOutput " Installing Terraform"
     terminalOutput "======================================"
     log "Starting Terraform installation"
+
+    ensurePackages wget
     
     if [ "$pkgManager" = "apt" ]; then
         # Add HashiCorp GPG key
@@ -800,13 +947,164 @@ function installTerraform() {
     pause
 }
 
+function installOpenSSL() {
+    terminalOutput "======================================"
+    terminalOutput " Installing OpenSSL"
+    terminalOutput "======================================"
+    log "Starting OpenSSL installation"
+
+    ensurePackages openssl
+
+    terminalOutput "OpenSSL installation complete!"
+    openssl version
+    log "OpenSSL installation complete"
+    pause
+}
+
+function installComposer() {
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+
+    terminalOutput "======================================"
+    terminalOutput " Installing Composer"
+    terminalOutput "======================================"
+    log "Starting Composer installation"
+
+    ensurePackages curl php-cli
+
+    if [ "$pkgManager" = "apt" ]; then
+        sudo apt install -y composer
+    elif [ "$pkgManager" = "yum" ]; then
+        sudo yum install -y composer
+    elif [ "$pkgManager" = "dnf" ]; then
+        sudo dnf install -y composer
+    else
+        terminalOutput "Error: Unsupported package manager"
+        log "Composer installation failed - unsupported package manager"
+        pause
+        return 1
+    fi
+
+    terminalOutput "Composer installation complete!"
+    COMPOSER_ALLOW_SUPERUSER=1 composer --version
+    log "Composer installation complete"
+    pause
+}
+
+function installLaravelDeps() {
+    terminalOutput "======================================"
+    terminalOutput " Installing Laravel Dependencies"
+    terminalOutput "======================================"
+    log "Starting Laravel dependencies installation"
+
+    installPHP
+    installNodeJS
+    installComposer
+    installZip
+    ensurePackages php-xml php-mbstring php-curl php-zip php-intl php-bcmath php-gd
+
+    terminalOutput "Laravel dependencies installation complete!"
+    log "Laravel dependencies installation complete"
+    pause
+}
+
+function installVim() {
+    terminalOutput "======================================"
+    terminalOutput " Installing Vim"
+    terminalOutput "======================================"
+    log "Starting Vim installation"
+
+    ensurePackages vim
+
+    terminalOutput "Vim installation complete!"
+    vim --version | head -n 1
+    log "Vim installation complete"
+    pause
+}
+
+function installPostman() {
+    terminalOutput "======================================"
+    terminalOutput " Installing Postman CLI"
+    terminalOutput "======================================"
+    log "Starting Postman CLI installation"
+
+    if ! command -v npm >/dev/null 2>&1; then
+        installNodeJS
+    fi
+
+    sudo npm install -g postman-cli
+
+    # Ensure the postman command uses WSL Node.js (avoid Windows-side binary)
+    local NODE_PATH
+    NODE_PATH=$(command -v node)
+    if [ -z "$NODE_PATH" ]; then
+        terminalOutput "Error: Node.js not found after installation."
+        log "Postman CLI installation failed - node not found"
+        pause
+        return 1
+    fi
+
+    local POSTMAN_WRAPPER="/usr/local/bin/postman"
+    local POSTMAN_JS="/usr/local/lib/node_modules/postman-cli/bin/postman.js"
+
+    if [ -f "$POSTMAN_WRAPPER" ] && ! grep -q "postman-cli/bin/postman.js" "$POSTMAN_WRAPPER" 2>/dev/null; then
+        sudo rm -f "$POSTMAN_WRAPPER"
+    fi
+
+    sudo tee "$POSTMAN_WRAPPER" >/dev/null <<EOF
+#!/usr/bin/env bash
+exec "$NODE_PATH" "$POSTMAN_JS" "\$@"
+EOF
+    sudo chmod +x "$POSTMAN_WRAPPER"
+
+    # Clear shell command cache so the new wrapper is picked up
+    hash -r 2>/dev/null || true
+
+    terminalOutput "Postman CLI installation complete!"
+    postman --version
+    log "Postman CLI installation complete"
+    pause
+}
+
+function installPackagesFromList() {
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+
+    if [ "$#" -eq 0 ]; then
+        terminalOutput "Error: No packages provided."
+        log "Package list installation failed - no packages provided"
+        return 1
+    fi
+
+    terminalOutput "======================================"
+    terminalOutput " Installing Package List"
+    terminalOutput "======================================"
+    log "Starting package list installation: $*"
+
+    if [ "$pkgManager" = "apt" ]; then
+        sudo apt update
+        sudo apt install -y "$@"
+    elif [ "$pkgManager" = "yum" ]; then
+        sudo yum install -y "$@"
+    elif [ "$pkgManager" = "dnf" ]; then
+        sudo dnf install -y "$@"
+    else
+        terminalOutput "Error: Unsupported package manager"
+        log "Package list installation failed - unsupported package manager"
+        return 1
+    fi
+
+    terminalOutput "Package list installation complete!"
+    log "Package list installation complete"
+}
+
 function installAll() {
     terminalOutput "======================================"
     terminalOutput " Installing All Development Tools"
     terminalOutput "======================================"
     log "Starting installation of all development tools"
     
-    if confirm "This will install Python, Node.js, Git, curl, wget, make, Docker, Docker Compose, zip, Golang, PHP, AWS CLI, Azure CLI, Google Cloud SDK, and Terraform. Continue?"; then
+    if confirm "This will install Python, Node.js, Git, curl, wget, make, Docker, Docker Compose, zip, Golang, PHP, AWS CLI, Azure CLI, Google Cloud SDK, Terraform, OpenSSL, Composer, Laravel dependencies, Vim, and Postman CLI. Continue?"; then
         installCurl
         installWget
         installGit
@@ -822,6 +1120,11 @@ function installAll() {
         installAzureCLI
         installGoogleCloudSDK
         installTerraform
+        installOpenSSL
+        installComposer
+        installLaravelDeps
+        installVim
+        installPostman
         
         terminalOutput "======================================"
         terminalOutput " All Development Tools Installed!"
@@ -966,6 +1269,22 @@ function showVersions() {
     else
         terminalOutput "Terraform: Not installed"
     fi
+
+    terminalOutput ""
+    terminalOutput "--- OpenSSL ---"
+    if command -v openssl >/dev/null 2>&1; then
+        openssl version
+    else
+        terminalOutput "OpenSSL: Not installed"
+    fi
+
+    terminalOutput ""
+    terminalOutput "--- Postman CLI ---"
+    if command -v postman >/dev/null 2>&1; then
+        postman --version
+    else
+        terminalOutput "Postman CLI: Not installed"
+    fi
     
     terminalOutput "======================================"
     pause
@@ -978,28 +1297,14 @@ function showVersions() {
 function showHelp(){
     terminalOutput "Development Environment Setup Script - Version $SCRIPT_VERSION"
     terminalOutput ""
-    terminalOutput "Usage: ./setup-dev-env.sh [OPTION]"
+    terminalOutput "Usage: ./setup-env.sh [OPTION]"
     terminalOutput ""
-    terminalOutput "Options:"
-    terminalOutput "  --install-all            Install all development tools"
-    terminalOutput "  --install-python         Install Python 3 and pip"
-    terminalOutput "  --install-nodejs         Install Node.js and npm"
-    terminalOutput "  --install-git            Install Git"
-    terminalOutput "  --install-curl           Install curl"
-    terminalOutput "  --install-wget           Install wget"
-    terminalOutput "  --install-make           Install make and build tools"
-    terminalOutput "  --install-docker         Install Docker"
-    terminalOutput "  --install-docker-compose Install Docker Compose (standalone)"
-    terminalOutput "  --install-zip            Install zip and unzip"
-    terminalOutput "  --install-golang         Install Golang"
-    terminalOutput "  --install-php            Install PHP"
-    terminalOutput "  --install-aws            Install AWS CLI"
-    terminalOutput "  --install-azure          Install Azure CLI"
-    terminalOutput "  --install-gcloud         Install Google Cloud SDK"
-    terminalOutput "  --install-terraform      Install Terraform"
+    terminalOutput "  --install-postman        Install Postman CLI"
+    terminalOutput "  --system-update          Run system update and cleanup"
+    terminalOutput "  --install-packages       Install a list of packages (space-separated)"
     terminalOutput "  --help                   Show this help message"
     terminalOutput ""
-    terminalOutput "Menu Options:"
+    terminalOutput "Menu Options (enter one or more numbers separated by spaces, e.g., 3 5 9 11 19):"
     terminalOutput "  1)  Install Python             - Python 3, pip, and development tools"
     terminalOutput "  2)  Install Node.js & npm      - Node.js LTS and npm package manager"
     terminalOutput "  3)  Install Git                - Git version control system"
@@ -1015,9 +1320,14 @@ function showHelp(){
     terminalOutput "  13) Install Azure CLI          - Microsoft Azure CLI"
     terminalOutput "  14) Install Google Cloud SDK   - Google Cloud Platform tools"
     terminalOutput "  15) Install Terraform          - Infrastructure as Code tool"
-    terminalOutput "  16) Install All Tools          - Install everything at once"
-    terminalOutput "  17) Show Installed Versions    - Display versions of installed tools"
-    terminalOutput "  18) Help                       - Show this help message"
+    terminalOutput "  16) Install OpenSSL            - Install OpenSSL"
+    terminalOutput "  17) Install Composer           - Install Composer"
+    terminalOutput "  18) Install Laravel Deps       - Install Laravel dependencies"
+    terminalOutput "  19) Install Vim                - Install Vim"
+    terminalOutput "  20) Install Postman CLI        - Install Postman CLI"
+    terminalOutput "  21) Install All Tools          - Install everything at once"
+    terminalOutput "  22) Show Installed Versions    - Display versions of installed tools"
+    terminalOutput "  23) Help                       - Show this help message"
     terminalOutput "  0)  Exit                       - Quit the script"
     pause
 }
@@ -1046,40 +1356,61 @@ function showMenu(){
     terminalOutput "13) Install Azure CLI"
     terminalOutput "14) Install Google Cloud SDK"
     terminalOutput "15) Install Terraform"
-    terminalOutput "16) Install All Tools"
-    terminalOutput "17) Show Installed Versions"
-    terminalOutput "18) Help"
+    terminalOutput "16) Install OpenSSL"
+    terminalOutput "17) Install Composer"
+    terminalOutput "18) Install Laravel Dependencies"
+    terminalOutput "19) Install Vim"
+    terminalOutput "20) Install Postman CLI"
+    terminalOutput "21) Install All Tools"
+    terminalOutput "22) Show Installed Versions"
+    terminalOutput "23) Help"
     terminalOutput "0)  Exit"
     terminalOutput "======================================"
-    read -p "Choose an option [0-18]: " choice
+    terminalOutput "Tip: Enter one or more numbers separated by spaces (e.g., 3 5 9 11 19)."
+    read -p "Choose option(s) [0-23] (space-separated): " -a choices
 
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 18 ]; then
-        terminalOutput "Invalid input. Please enter a number between 0 and 18."
+    if [ "${#choices[@]}" -eq 0 ]; then
+        terminalOutput "Invalid input. Please enter one or more numbers between 0 and 23."
         sleep 2
         return
     fi
 
-    case $choice in
-        1) installPython ;;
-        2) installNodeJS ;;
-        3) installGit ;;
-        4) installCurl ;;
-        5) installWget ;;
-        6) installMake ;;
-        7) installDocker ;;
-        8) installDockerCompose ;;
-        9) installZip ;;
-        10) installGolang ;;
-        11) installPHP ;;
-        12) installAWSCLI ;;
-        13) installAzureCLI ;;
-        14) installGoogleCloudSDK ;;
-        15) installTerraform ;;
-        16) installAll ;;
-        17) showVersions ;;
-        18) showHelp ;;
-        0) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
-    esac
+    for choice in "${choices[@]}"; do
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 23 ]; then
+            terminalOutput "Invalid input. Please enter numbers between 0 and 23."
+            sleep 2
+            return
+        fi
+    done
+
+    for choice in "${choices[@]}"; do
+        case $choice in
+            1) installPython ;;
+            2) installNodeJS ;;
+            3) installGit ;;
+            4) installCurl ;;
+            5) installWget ;;
+            6) installMake ;;
+            7) installDocker ;;
+            8) installDockerCompose ;;
+            9) installZip ;;
+            10) installGolang ;;
+            11) installPHP ;;
+            12) installAWSCLI ;;
+            13) installAzureCLI ;;
+            14) installGoogleCloudSDK ;;
+            15) installTerraform ;;
+            16) installOpenSSL ;;
+            17) installComposer ;;
+            18) installLaravelDeps ;;
+            19) installVim ;;
+            20) installPostman ;;
+            21) installAll ;;
+            22) showVersions ;;
+            23) showHelp ;;
+            0) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
+        esac
+    done
 }
 
 ################################################################################################
@@ -1088,6 +1419,11 @@ function showMenu(){
 
 # Check if script is run with root privileges
 checkRoot
+
+# Enable non-interactive mode for CLI usage
+if [ "$#" -gt 0 ]; then
+    NON_INTERACTIVE=true
+fi
 
 # Parse command line arguments
 if [[ "$1" == "--install-all" ]]; then
@@ -1108,14 +1444,8 @@ elif [[ "$1" == "--install-curl" ]]; then
 elif [[ "$1" == "--install-make" ]]; then
     installMake
     exit 0
-elif [[ "$1" == "--install-curl" ]]; then
-    installCurl
-    exit 0
 elif [[ "$1" == "--install-wget" ]]; then
     installWget
-    exit 0
-elif [[ "$1" == "--install-make" ]]; then
-    installMake
     exit 0
 elif [[ "$1" == "--install-docker" ]]; then
     installDocker
@@ -1143,6 +1473,31 @@ elif [[ "$1" == "--install-gcloud" ]]; then
     exit 0
 elif [[ "$1" == "--install-terraform" ]]; then
     installTerraform
+    exit 0
+elif [[ "$1" == "--install-openssl" ]]; then
+    installOpenSSL
+    exit 0
+elif [[ "$1" == "--install-openssh" ]]; then
+    installOpenSSHServer
+    exit 0
+elif [[ "$1" == "--install-composer" ]]; then
+    installComposer
+    exit 0
+elif [[ "$1" == "--install-laravel-deps" ]]; then
+    installLaravelDeps
+    exit 0
+elif [[ "$1" == "--install-vim" ]]; then
+    installVim
+    exit 0
+elif [[ "$1" == "--install-postman" ]]; then
+    installPostman
+    exit 0
+elif [[ "$1" == "--system-update" ]]; then
+    runSystemUpdate
+    exit 0
+elif [[ "$1" == "--install-packages" ]]; then
+    shift
+    installPackagesFromList "$@"
     exit 0
 elif [[ "$1" == "--help" ]]; then
     showHelp
