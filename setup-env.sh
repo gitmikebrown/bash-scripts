@@ -1,8 +1,8 @@
 #!/bin/bash
 # File: setup-env.sh
 # Author: Michael Brown
-# Version: 1.0.1
-# Date: January 29, 2026
+# Version: 1.0.2
+# Date: February 6, 2026
 # Description: Menu-driven development environment setup script for Ubuntu/Debian systems
 #              Installs and configures common dev tools including Python, Node.js, Git, curl, wget,
 #              make/build tools, Docker, Docker Compose, zip/unzip, Golang, PHP, AWS/Azure/GCloud CLIs,
@@ -23,6 +23,7 @@
 # Run with command line options:
 #   ./setup-env.sh                  # Starts the interactive menu
 #   ./setup-env.sh --install-all    # Install all development tools
+#   ./setup-env.sh --github-clone   # Clone a GitHub repo via HTTPS
 #   ./setup-env.sh --install-python         # Install Python only
 #   ./setup-env.sh --install-nodejs         # Install Node.js only
 #   ./setup-env.sh --install-git            # Install Git only
@@ -97,7 +98,7 @@
 ################################################################################################
 
 # Define script version
-SCRIPT_VERSION="1.0.1"
+SCRIPT_VERSION="1.0.2"
 
 # Enable or disable logging (true/false)
 LOGGING_ENABLED=false
@@ -115,6 +116,11 @@ GIT_USER_EMAIL="123339553+gitmikebrown@users.noreply.github.com"
 
 # Cache for detected package manager
 DETECTED_PKG_MANAGER=""
+
+# Terminal colors
+COLOR_GREEN="\033[0;32m"
+COLOR_RED="\033[0;31m"
+COLOR_RESET="\033[0m"
 
 ################################################################################################
 #### Detect Package Manager
@@ -168,7 +174,17 @@ function log() {
 
 function terminalOutput() {
     if [ "$QUIET_MODE" = false ]; then
-        echo "$1"
+        local text="$1"
+
+        if [[ "$text" =~ ^[=]{10,}$ ]]; then
+            printf "%b\n" "${COLOR_GREEN}${text}${COLOR_RESET}"
+        elif [[ "$text" =~ ^\ (WARNING|Warning|CAUTION|Caution|DANGER|Danger) ]]; then
+            printf "%b\n" "${COLOR_RED}${text}${COLOR_RESET}"
+        elif [[ "$text" =~ ^\ (Installing|Installed|Dev\ Environment\ Setup|Database\ Setup|Help) ]]; then
+            printf "%b\n" "${COLOR_GREEN}${text}${COLOR_RESET}"
+        else
+            echo "$text"
+        fi
     fi
 }
 
@@ -304,10 +320,221 @@ function installGit() {
     
     terminalOutput "Git installation complete!"
     git --version
-    git config --global user.name "$GIT_USER_NAME"
-    git config --global user.email "$GIT_USER_EMAIL"
+    if [ "$NON_INTERACTIVE" = true ]; then
+        git config --global user.name "$GIT_USER_NAME"
+        git config --global user.email "$GIT_USER_EMAIL"
+    else
+        if ! confirm "Would you like to set your Git identity now?"; then
+            terminalOutput "Skipped Git identity setup. You can set it later with:"
+            terminalOutput "  git config --global user.name \"Your Name\""
+            terminalOutput "  git config --global user.email \"you@example.com\""
+            terminalOutput "To change the defaults, edit GIT_USER_NAME/GIT_USER_EMAIL near the top of this script."
+            log "Git identity setup skipped"
+            pause
+            return
+        fi
+
+        local gitName="$GIT_USER_NAME"
+        local gitEmail="$GIT_USER_EMAIL"
+
+        terminalOutput "Git identity defaults:"
+        terminalOutput "  Name:  $gitName"
+        terminalOutput "  Email: $gitEmail"
+
+        if confirm "Is this your info?"; then
+            git config --global user.name "$gitName"
+            git config --global user.email "$gitEmail"
+        else
+            terminalOutput "You can update it now or later with:"
+            terminalOutput "  git config --global user.name \"Your Name\""
+            terminalOutput "  git config --global user.email \"you@example.com\""
+            terminalOutput "To change the defaults, edit GIT_USER_NAME/GIT_USER_EMAIL near the top of this script."
+
+            read -p "Enter your name (leave blank to skip): " gitNameInput
+            read -p "Enter your email (leave blank to skip): " gitEmailInput
+
+            if [ -n "$gitNameInput" ]; then
+                gitName="$gitNameInput"
+            fi
+
+            if [ -n "$gitEmailInput" ]; then
+                gitEmail="$gitEmailInput"
+            fi
+
+            if [ -n "$gitNameInput" ] || [ -n "$gitEmailInput" ]; then
+                if [ -n "$gitName" ]; then
+                    git config --global user.name "$gitName"
+                fi
+                if [ -n "$gitEmail" ]; then
+                    git config --global user.email "$gitEmail"
+                fi
+            fi
+        fi
+    fi
     log "Git installation complete"
     pause
+}
+
+function cloneGitHubRepo() {
+    terminalOutput "======================================"
+    terminalOutput " GitHub HTTPS Clone"
+    terminalOutput "======================================"
+    terminalOutput "Tip: Type 'q' at any prompt to cancel."
+
+    if ! command -v git >/dev/null 2>&1; then
+        terminalOutput "Git is not installed."
+        if confirm "Install Git now?"; then
+            installGit
+        else
+            terminalOutput "Canceled."
+            return 1
+        fi
+    fi
+
+    local repoUrl=""
+    local repoName=""
+    local defaultDir=""
+    local targetDir=""
+    local confirmAction=""
+    local action=""
+
+    while true; do
+        read -p "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+
+        if [ "$repoUrl" = "q" ] || [ "$repoUrl" = "Q" ]; then
+            terminalOutput "Canceled."
+            return 0
+        fi
+
+        if [ -z "$repoUrl" ]; then
+            terminalOutput "Please enter a URL or 'q' to cancel."
+            continue
+        fi
+
+        if [[ "$repoUrl" != https://* ]]; then
+            terminalOutput "URL must start with https://"
+            continue
+        fi
+
+        break
+    done
+
+    repoName=$(basename "$repoUrl")
+    repoName=${repoName%.git}
+
+    if [ -z "$repoName" ]; then
+        terminalOutput "Could not determine repo name from URL."
+        return 1
+    fi
+
+    defaultDir="$repoName"
+    while true; do
+        read -p "Target folder [${defaultDir}]: " targetDir
+
+        if [ "$targetDir" = "q" ] || [ "$targetDir" = "Q" ]; then
+            terminalOutput "Canceled."
+            return 0
+        fi
+
+        if [ -z "$targetDir" ]; then
+            targetDir="$defaultDir"
+        fi
+
+        if [ -e "$targetDir" ]; then
+            terminalOutput "Target path '$targetDir' already exists. Choose another folder or 'q' to cancel."
+            targetDir=""
+            continue
+        fi
+
+        break
+    done
+
+    terminalOutput "About to clone:"
+    terminalOutput "  URL:  $repoUrl"
+    terminalOutput "  Dest: $targetDir"
+
+    while true; do
+        read -p "Continue? [y/N]: " confirmAction
+        if ! [[ "$confirmAction" =~ ^[Yy]$ ]]; then
+            terminalOutput "Canceled."
+            return 0
+        fi
+
+        if git clone "$repoUrl" "$targetDir"; then
+            terminalOutput "Clone complete."
+            terminalOutput "Next steps:"
+            terminalOutput "  cd \"$targetDir\""
+            terminalOutput "  git status"
+            terminalOutput ""
+            terminalOutput "Tip: If prompted for credentials, use a GitHub token or sign in via VS Code."
+            return 0
+        fi
+
+        terminalOutput "Clone failed. Choose an option:"
+        terminalOutput "  1) Retry clone"
+        terminalOutput "  2) Change URL"
+        terminalOutput "  3) Change target folder"
+        terminalOutput "  4) Cancel"
+
+        read -p "Select [1-4]: " action
+        case "$action" in
+            1) ;;
+            2)
+                repoUrl=""
+                while true; do
+                    read -p "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+                    if [ "$repoUrl" = "q" ] || [ "$repoUrl" = "Q" ]; then
+                        terminalOutput "Canceled."
+                        return 0
+                    fi
+                    if [ -z "$repoUrl" ]; then
+                        terminalOutput "Please enter a URL or 'q' to cancel."
+                        continue
+                    fi
+                    if [[ "$repoUrl" != https://* ]]; then
+                        terminalOutput "URL must start with https://"
+                        continue
+                    fi
+                    break
+                done
+
+                repoName=$(basename "$repoUrl")
+                repoName=${repoName%.git}
+                if [ -z "$repoName" ]; then
+                    terminalOutput "Could not determine repo name from URL."
+                    return 1
+                fi
+                defaultDir="$repoName"
+                targetDir=""
+                ;;
+            3)
+                targetDir=""
+                while true; do
+                    read -p "Target folder [${defaultDir}]: " targetDir
+                    if [ "$targetDir" = "q" ] || [ "$targetDir" = "Q" ]; then
+                        terminalOutput "Canceled."
+                        return 0
+                    fi
+                    if [ -z "$targetDir" ]; then
+                        targetDir="$defaultDir"
+                    fi
+                    if [ -e "$targetDir" ]; then
+                        terminalOutput "Target path '$targetDir' already exists. Choose another folder or 'q' to cancel."
+                        targetDir=""
+                        continue
+                    fi
+                    break
+                done
+                ;;
+            4)
+                terminalOutput "Canceled."
+                return 0
+                ;;
+            *)
+                terminalOutput "Invalid option."
+                ;;
+        esac
+    done
 }
 
 function installCurl() {
@@ -1299,6 +1526,7 @@ function showHelp(){
     terminalOutput ""
     terminalOutput "Usage: ./setup-env.sh [OPTION]"
     terminalOutput ""
+    terminalOutput "  --github-clone         Clone a GitHub repo via HTTPS"
     terminalOutput "  --install-postman        Install Postman CLI"
     terminalOutput "  --system-update          Run system update and cleanup"
     terminalOutput "  --install-packages       Install a list of packages (space-separated)"
@@ -1328,6 +1556,7 @@ function showHelp(){
     terminalOutput "  21) Install All Tools          - Install everything at once"
     terminalOutput "  22) Show Installed Versions    - Display versions of installed tools"
     terminalOutput "  23) Help                       - Show this help message"
+    terminalOutput "  24) Clone GitHub Repo (HTTPS)  - Clone a GitHub repository"
     terminalOutput "  0)  Exit                       - Quit the script"
     pause
 }
@@ -1338,9 +1567,13 @@ function showHelp(){
 
 function showMenu(){
     clear
-    terminalOutput "======================================"
-    terminalOutput " Dev Environment Setup - v$SCRIPT_VERSION"
-    terminalOutput "======================================"
+    local GREEN="\033[0;32m"
+    local YELLOW="\033[0;33m"
+    local RESET="\033[0m"
+
+    terminalOutput "${GREEN}======================================${RESET}"
+    terminalOutput "${GREEN} Dev Environment Setup - v$SCRIPT_VERSION${RESET}"
+    terminalOutput "${GREEN}======================================${RESET}"
     terminalOutput "1)  Install Python"
     terminalOutput "2)  Install Node.js & npm"
     terminalOutput "3)  Install Git"
@@ -1364,20 +1597,21 @@ function showMenu(){
     terminalOutput "21) Install All Tools"
     terminalOutput "22) Show Installed Versions"
     terminalOutput "23) Help"
+    terminalOutput "24) Clone GitHub Repo (HTTPS)"
     terminalOutput "0)  Exit"
     terminalOutput "======================================"
     terminalOutput "Tip: Enter one or more numbers separated by spaces (e.g., 3 5 9 11 19)."
-    read -p "Choose option(s) [0-23] (space-separated): " -a choices
+    read -p "${YELLOW}Choose option(s) [0-24] (space-separated): ${RESET}" -a choices
 
     if [ "${#choices[@]}" -eq 0 ]; then
-        terminalOutput "Invalid input. Please enter one or more numbers between 0 and 23."
+        terminalOutput "Invalid input. Please enter one or more numbers between 0 and 24."
         sleep 2
         return
     fi
 
     for choice in "${choices[@]}"; do
-        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 23 ]; then
-            terminalOutput "Invalid input. Please enter numbers between 0 and 23."
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 24 ]; then
+            terminalOutput "Invalid input. Please enter numbers between 0 and 24."
             sleep 2
             return
         fi
@@ -1408,6 +1642,7 @@ function showMenu(){
             21) installAll ;;
             22) showVersions ;;
             23) showHelp ;;
+            24) cloneGitHubRepo ;;
             0) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
         esac
     done
@@ -1491,6 +1726,9 @@ elif [[ "$1" == "--install-vim" ]]; then
     exit 0
 elif [[ "$1" == "--install-postman" ]]; then
     installPostman
+    exit 0
+elif [[ "$1" == "--github-clone" ]]; then
+    cloneGitHubRepo
     exit 0
 elif [[ "$1" == "--system-update" ]]; then
     runSystemUpdate

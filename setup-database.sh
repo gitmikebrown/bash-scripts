@@ -1,8 +1,8 @@
 #!/bin/bash
 # File: setup-database.sh
 # Author: Michael Brown
-# Version: 1.0.0
-# Date: November 20, 2025
+# Version: 1.0.1
+# Date: February 6, 2026
 # Description: Menu-driven database setup script for Ubuntu/Debian and RHEL-based systems
 #              Installs and configures PostgreSQL, MySQL, MongoDB, Redis, SQLite, and DB client tools
 
@@ -75,7 +75,7 @@
 ################################################################################################
 
 # Define script version
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 
 # Enable or disable logging (true/false)
 LOGGING_ENABLED=false
@@ -861,16 +861,24 @@ function installSqlite3() {
 }
 
 function showVersions() {
-    terminalOutput "======================================"
-    terminalOutput " Installed Database Versions"
-    terminalOutput "======================================"
+    local GREEN="\033[0;32m"
+    local RESET="\033[0m"
+
+    terminalOutput "${GREEN}======================================${RESET}"
+    terminalOutput "${GREEN} Installed Database Versions${RESET}"
+    terminalOutput "${GREEN}======================================${RESET}"
     
     terminalOutput ""
     terminalOutput "--- PostgreSQL ---"
     if command -v psql >/dev/null 2>&1; then
-        psql --version
+        local pgVersion
+        local pgStatus
+
+        pgVersion=$(psql --version 2>/dev/null)
+        terminalOutput "${GREEN}${pgVersion}${RESET}"
         terminalOutput "Service status:"
-        sudo systemctl is-active postgresql 2>/dev/null || echo "Service not running or not found"
+        pgStatus=$(sudo systemctl is-active postgresql 2>/dev/null || echo "Service not running or not found")
+        terminalOutput "${GREEN}${pgStatus}${RESET}"
     else
         terminalOutput "PostgreSQL: Not installed"
     fi
@@ -878,9 +886,14 @@ function showVersions() {
     terminalOutput ""
     terminalOutput "--- MySQL ---"
     if command -v mysql >/dev/null 2>&1; then
-        mysql --version
+        local mysqlVersion
+        local mysqlStatus
+
+        mysqlVersion=$(mysql --version 2>/dev/null)
+        terminalOutput "${GREEN}${mysqlVersion}${RESET}"
         terminalOutput "Service status:"
-        sudo systemctl is-active mysql 2>/dev/null || sudo systemctl is-active mysqld 2>/dev/null || echo "Service not running or not found"
+        mysqlStatus=$(sudo systemctl is-active mysql 2>/dev/null || sudo systemctl is-active mysqld 2>/dev/null || echo "Service not running or not found")
+        terminalOutput "${GREEN}${mysqlStatus}${RESET}"
     else
         terminalOutput "MySQL: Not installed"
     fi
@@ -888,9 +901,14 @@ function showVersions() {
     terminalOutput ""
     terminalOutput "--- MongoDB ---"
     if command -v mongod >/dev/null 2>&1; then
-        mongod --version | head -n 1
+        local mongoVersion
+        local mongoStatus
+
+        mongoVersion=$(mongod --version 2>/dev/null | head -n 1)
+        terminalOutput "${GREEN}${mongoVersion}${RESET}"
         terminalOutput "Service status:"
-        sudo systemctl is-active mongod 2>/dev/null || echo "Service not running or not found"
+        mongoStatus=$(sudo systemctl is-active mongod 2>/dev/null || echo "Service not running or not found")
+        terminalOutput "${GREEN}${mongoStatus}${RESET}"
     else
         terminalOutput "MongoDB: Not installed"
     fi
@@ -898,9 +916,14 @@ function showVersions() {
     terminalOutput ""
     terminalOutput "--- Redis ---"
     if command -v redis-server >/dev/null 2>&1; then
-        redis-server --version
+        local redisVersion
+        local redisStatus
+
+        redisVersion=$(redis-server --version 2>/dev/null)
+        terminalOutput "${GREEN}${redisVersion}${RESET}"
         terminalOutput "Service status:"
-        sudo systemctl is-active redis 2>/dev/null || sudo systemctl is-active redis-server 2>/dev/null || echo "Service not running or not found"
+        redisStatus=$(sudo systemctl is-active redis 2>/dev/null || sudo systemctl is-active redis-server 2>/dev/null || echo "Service not running or not found")
+        terminalOutput "${GREEN}${redisStatus}${RESET}"
     else
         terminalOutput "Redis: Not installed"
     fi
@@ -908,7 +931,10 @@ function showVersions() {
     terminalOutput ""
     terminalOutput "--- Redis CLI Tools ---"
     if command -v redis-cli >/dev/null 2>&1; then
-        redis-cli --version
+        local redisCliVersion
+
+        redisCliVersion=$(redis-cli --version 2>/dev/null)
+        terminalOutput "${GREEN}${redisCliVersion}${RESET}"
     else
         terminalOutput "Redis CLI Tools: Not installed"
     fi
@@ -916,7 +942,10 @@ function showVersions() {
     terminalOutput ""
     terminalOutput "--- SQLite ---"
     if command -v sqlite3 >/dev/null 2>&1; then
-        sqlite3 --version
+        local sqliteVersion
+
+        sqliteVersion=$(sqlite3 --version 2>/dev/null)
+        terminalOutput "${GREEN}${sqliteVersion}${RESET}"
     else
         terminalOutput "SQLite: Not installed"
     fi
