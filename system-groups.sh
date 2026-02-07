@@ -76,6 +76,20 @@
 
 ################################################################################################
 
+COLOR_YELLOW="\033[0;33m"
+COLOR_RESET="\033[0m"
+
+function promptInput(){
+    local prompt="$1"
+    local varName="$2"
+    printf "%b" "${COLOR_YELLOW}${prompt}${COLOR_RESET}"
+    if [ -n "$varName" ]; then
+        read -r "$varName"
+    else
+        read -r
+    fi
+}
+
 ################################################################################################
 #### Distribution Detection and Configuration
 ################################################################################################
@@ -245,7 +259,7 @@ function makeUserAdmin() {
             echo "Adding $username to web group: $WEB_USER (force mode)"
             sudo usermod --append --groups "$WEB_USER" "$username"
         else
-            read -p "Also add $username to web group '$WEB_USER'? (y/n): " add_web
+            promptInput "Also add $username to web group '$WEB_USER'? (y/n): " add_web
             if [[ "$add_web" =~ ^[Yy]$ ]]; then
                 echo "Adding $username to web group: $WEB_USER"
                 sudo usermod --append --groups "$WEB_USER" "$username"
@@ -293,7 +307,7 @@ function takeOwnership() {
     # Additional safety: Warn if trying to change ownership of anything in /usr or /etc
     if [[ "$abs_path" == /usr/* ]] || [[ "$abs_path" == /etc/* ]]; then
         echo "WARNING: You're trying to change ownership in a system directory ($path)"
-        read -p "This could potentially break system functionality. Continue? (type 'YES' to confirm): " confirm
+        promptInput "This could potentially break system functionality. Continue? (type 'YES' to confirm): " confirm
         if [[ "$confirm" != "YES" ]]; then
             echo "Operation cancelled for safety."
             return 1
@@ -312,7 +326,7 @@ function takeOwnership() {
     echo "Current ownership:"
     ls -la "$path" | head -5
     
-    read -p "Change ownership of '$path' to '$username'? (y/n): " confirm_ownership
+    promptInput "Change ownership of '$path' to '$username'? (y/n): " confirm_ownership
     if [[ ! "$confirm_ownership" =~ ^[Yy]$ ]]; then
         echo "Operation cancelled."
         return 1
@@ -329,7 +343,7 @@ function takeOwnership() {
         ls -la "$path"
         
         # Ask if they want to set permissions
-        read -p "Set full read/write permissions for owner? (y/n): " set_perms
+        promptInput "Set full read/write permissions for owner? (y/n): " set_perms
         if [[ "$set_perms" =~ ^[Yy]$ ]]; then
             sudo chmod -R 755 "$path"
             echo "SUCCESS: Set permissions to 755 (owner: read/write/execute, others: read/execute)"
@@ -364,7 +378,7 @@ function addUserToGroup() {
             echo "SUCCESS: Created group '$groupname'"
         else
             echo "ERROR: Group '$groupname' does not exist"
-            read -p "Create group '$groupname'? (y/n): " create_group
+            promptInput "Create group '$groupname'? (y/n): " create_group
             if [[ "$create_group" =~ ^[Yy]$ ]]; then
                 sudo groupadd "$groupname"
                 echo "SUCCESS: Created group '$groupname'"
@@ -591,16 +605,16 @@ function parseArguments() {
 function launchInteractiveMenu() {
     while true; do
         showMenu
-        read -p "Choose an option [1-10]: " choice
+        promptInput "Choose an option [1-10]: " choice
         
         case $choice in
-            1) read -p "Enter username (or press Enter for current user): " user; makeUserAdmin "${user:-$USER}" ;;
-            2) read -p "Enter path to take ownership of: " path; read -p "Enter username (or press Enter for current user): " user; takeOwnership "$path" "${user:-$USER}" ;;
-            3) read -p "Enter username: " user; read -p "Enter group name: " group; addUserToGroup "$user" "$group" ;;
-            4) read -p "Enter username: " user; read -p "Enter group name: " group; removeUserFromGroup "$user" "$group" ;;
-            5) read -p "Enter new group name: " group; sudo groupadd "$group" && echo "SUCCESS: Created group '$group'" ;;
-            6) read -p "Enter group name to delete: " group; deleteGroup "$group" ;;
-            7) read -p "Enter username (or press Enter for current user): " user; viewUserGroups "${user:-$USER}" ;;
+            1) promptInput "Enter username (or press Enter for current user): " user; makeUserAdmin "${user:-$USER}" ;;
+            2) promptInput "Enter path to take ownership of: " path; promptInput "Enter username (or press Enter for current user): " user; takeOwnership "$path" "${user:-$USER}" ;;
+            3) promptInput "Enter username: " user; promptInput "Enter group name: " group; addUserToGroup "$user" "$group" ;;
+            4) promptInput "Enter username: " user; promptInput "Enter group name: " group; removeUserFromGroup "$user" "$group" ;;
+            5) promptInput "Enter new group name: " group; sudo groupadd "$group" && echo "SUCCESS: Created group '$group'" ;;
+            6) promptInput "Enter group name to delete: " group; deleteGroup "$group" ;;
+            7) promptInput "Enter username (or press Enter for current user): " user; viewUserGroups "${user:-$USER}" ;;
             8) viewAllGroups ;;
             9) showSystemInfo ;;
             10) echo "Exiting..."; break ;;
@@ -608,7 +622,7 @@ function launchInteractiveMenu() {
         esac
         
         echo ""
-        read -p "Press Enter to continue..."
+        promptInput "Press Enter to continue..."
         clear
     done
 }

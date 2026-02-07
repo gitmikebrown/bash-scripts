@@ -84,6 +84,10 @@ LOGFILE="/var/log/database-setup-script.log"
 # Quiet mode (suppress non-essential output)
 QUIET_MODE=false
 
+# Prompt colors
+COLOR_YELLOW="\033[0;33m"
+COLOR_RESET="\033[0m"
+
 # Cache for detected package manager
 DETECTED_PKG_MANAGER=""
 
@@ -147,12 +151,23 @@ function terminalOutput() {
 #### Utility Functions
 ################################################################################################
 
+function promptInput(){
+    local prompt="$1"
+    local varName="$2"
+    printf "%b" "${COLOR_YELLOW}${prompt}${COLOR_RESET}"
+    if [ -n "$varName" ]; then
+        read -r "$varName"
+    else
+        read -r
+    fi
+}
+
 function pause(){
-    read -p "Press [Enter] to return to the menu..."
+    promptInput "Press [Enter] to return to the menu..."
 }
 
 function confirm(){
-    read -p "$1 [y/N]: " response
+    promptInput "$1 [y/N]: " response
     [[ "$response" =~ ^[Yy]$ ]]
 }
 
@@ -1034,7 +1049,7 @@ function showMenu(){
     terminalOutput "18) Help"
     terminalOutput "0) Exit"
     terminalOutput "======================================"
-    read -p "Choose an option [0-18]: " choice
+    promptInput "Choose an option [0-18]: " choice
 
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 18 ]; then
         terminalOutput "Invalid input. Please enter a number between 0 and 18."

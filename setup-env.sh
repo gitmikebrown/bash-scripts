@@ -22,10 +22,10 @@
 #
 # Run with command line options:
 #   ./setup-env.sh                  # Starts the interactive menu
-#   ./setup-env.sh --install-all    # Install all development tools
 #   ./setup-env.sh --github-clone   # Clone a GitHub repo via HTTPS
 #   ./setup-env.sh --install-python         # Install Python only
 #   ./setup-env.sh --install-nodejs         # Install Node.js only
+#   ./setup-env.sh --install-npm            # Install npm only
 #   ./setup-env.sh --install-git            # Install Git only
 #   ./setup-env.sh --install-curl           # Install curl only
 #   ./setup-env.sh --install-wget           # Install wget only
@@ -51,46 +51,48 @@
 
 # COMMON SCENARIOS:
 #
-# 1. First time setup - install everything:
-#    ./setup-env.sh --install-all
-#
-# 2. Interactive installation (menu-driven):
+# 1. Interactive installation (menu-driven):
 #    ./setup-env.sh
-#    Then select options 1-23 from the menu (you can enter multiple numbers separated by spaces)
+#    Then select options 1-26 from the menu (you can enter multiple numbers separated by spaces)
 #
-# 3. Install specific tools:
+# 2. Install specific tools:
 #    ./setup-env.sh --install-python
 #    ./setup-env.sh --install-docker
 
-# 4. Install Laravel dependencies:
+# 3. Install Laravel dependencies:
 #    ./setup-env.sh --install-laravel-deps
 
 # MENU OPTIONS EXPLAINED:
 # When you run ./setup-env.sh, you'll see a menu with these options.
 # You can select one option or multiple options by entering numbers separated by spaces (e.g., 3 5 9 11 19).
+# Menu labels are dynamic and may show Install/Update with color based on status.
+# Green = installed and up to date; Yellow = installed but update available.
 #   1. Install Python             - Installs Python 3 and pip
-#   2. Install Node.js & npm      - Installs Node.js and npm package manager
-#   3. Install Git                - Installs Git version control
-#   4. Install curl               - Installs curl for HTTP requests
-#   5. Install wget               - Installs wget for file downloads
-#   6. Install make               - Installs build-essential (make, gcc, g++)
-#   7. Install Docker             - Installs Docker Engine
-#   8. Install Docker Compose     - Installs Docker Compose (standalone)
-#   9. Install zip/unzip          - Installs zip and unzip utilities
-#   10. Install Golang            - Installs Go programming language
-#   11. Install PHP               - Installs PHP and common extensions
-#   12. Install AWS CLI           - Installs AWS CLI
-#   13. Install Azure CLI         - Installs Azure CLI
-#   14. Install Google Cloud SDK  - Installs Google Cloud SDK
-#   15. Install Terraform         - Installs Terraform
-#   16. Install OpenSSL           - Installs OpenSSL
-#   17. Install Composer          - Installs Composer
-#   18. Install Laravel Deps      - Installs Laravel dependencies
-#   19. Install Vim               - Installs Vim editor
-#   20. Install Postman CLI        - Installs Postman CLI
-#   21. Install All Tools          - Installs all development tools
-#   22. Show Installed Versions    - Display versions of installed tools
-#   23. Help                       - Show usage information
+#   2. Install Node.js            - Installs Node.js runtime
+#   3. Install npm                - Installs npm package manager
+#   4. Install Golang             - Installs Go programming language
+#   5. Install PHP                - Installs PHP and common extensions
+#   6. Install Composer           - Installs Composer
+#   7. Install Laravel Deps       - Installs Laravel dependencies
+#   8. Install make               - Installs build-essential (make, gcc, g++)
+#   9. Install Docker             - Installs Docker Engine
+#   10. Install Docker Compose    - Installs Docker Compose (standalone)
+#   11. Install AWS CLI           - Installs AWS CLI
+#   12. Install Azure CLI         - Installs Azure CLI
+#   13. Install Google Cloud SDK  - Installs Google Cloud SDK
+#   14. Install Terraform         - Installs Terraform
+#   15. Install wget              - Installs wget for file downloads
+#   16. Install zip/unzip         - Installs zip and unzip utilities
+#   17. Install Git               - Installs Git version control
+#   18. Install curl              - Installs curl for HTTP requests
+#   19. Install OpenSSL           - Installs OpenSSL
+#   20. Install Postman CLI       - Installs Postman CLI
+#   21. Install Vim               - Installs Vim editor
+#   22. Clone GitHub Repo (HTTPS) - Clone a GitHub repository
+#   23. Set Git Identity          - Configure git user.name and user.email
+#   24. Show Installed Versions   - Display versions of installed tools
+#   25. CLI Options               - Show command line options
+#   26. Help                      - Show usage information
 #   0. Exit                       - Quit the script
 
 ################################################################################################
@@ -196,16 +198,51 @@ function terminalOutput() {
 #### Utility Functions
 ################################################################################################
 
+function isWSL(){
+    if grep -qiE "(microsoft|wsl)" /proc/version 2>/dev/null; then
+        return 0
+    fi
+    if grep -qiE "(microsoft|wsl)" /proc/sys/kernel/osrelease 2>/dev/null; then
+        return 0
+    fi
+    if [ -n "${WSL_DISTRO_NAME-}" ] || [ -n "${WSL_INTEROP-}" ]; then
+        return 0
+    fi
+    return 1
+}
+
+function warnWslDocker(){
+    if isWSL; then
+        terminalOutput "This looks like a WSL environment."
+        terminalOutput "Docker Engine inside WSL is not recommended for most users."
+        terminalOutput "Install Docker Desktop on Windows and enable this distro instead."
+        terminalOutput "Docker Desktop: Settings > Resources > WSL Integration > Enable integration."
+        terminalOutput "Then select this distro (or enable default WSL distro integration)."
+        terminalOutput ""
+    fi
+}
+
+function promptInput(){
+    local prompt="$1"
+    local varName="$2"
+    printf "%b" "${COLOR_YELLOW}${prompt}${COLOR_RESET}"
+    if [ -n "$varName" ]; then
+        read -r "$varName"
+    else
+        read -r
+    fi
+}
+
 function pause(){
     if [ "$NON_INTERACTIVE" = true ]; then
         return
     fi
     local prompt="${1:-Press [Enter] to return to the menu...}"
-    read -p "$prompt"
+    promptInput "$prompt"
 }
 
 function confirm(){
-    read -p "$1 [y/N]: " response
+    promptInput "$1 [y/N]: " response
     [[ "$response" =~ ^[Yy]$ ]]
 }
 
@@ -295,8 +332,25 @@ function installNodeJS() {
     
     terminalOutput "Node.js installation complete!"
     node --version
+    if ! command -v npm >/dev/null 2>&1; then
+        ensurePackages npm
+    fi
     npm --version
     log "Node.js installation complete"
+    pause
+}
+
+function installNpm() {
+    terminalOutput "======================================"
+    terminalOutput " Installing npm"
+    terminalOutput "======================================"
+    log "Starting npm installation"
+
+    ensurePackages npm
+
+    terminalOutput "npm installation complete!"
+    npm --version
+    log "npm installation complete"
     pause
 }
 
@@ -325,58 +379,103 @@ function installGit() {
     
     terminalOutput "Git installation complete!"
     git --version
-    if [ "$NON_INTERACTIVE" = true ]; then
-        git config --global user.name "$GIT_USER_NAME"
-        git config --global user.email "$GIT_USER_EMAIL"
-    else
-        if ! confirm "Would you like to set your Git identity now?"; then
-            terminalOutput "Skipped Git identity setup. You can set it later with:"
-            terminalOutput "  git config --global user.name \"Your Name\""
-            terminalOutput "  git config --global user.email \"you@example.com\""
-            terminalOutput "To change the defaults, edit GIT_USER_NAME/GIT_USER_EMAIL near the top of this script."
-            log "Git identity setup skipped"
-            pause
-            return
-        fi
-
-        local gitName="$GIT_USER_NAME"
-        local gitEmail="$GIT_USER_EMAIL"
-
-        terminalOutput "Git identity defaults:"
-        terminalOutput "  Name:  $gitName"
-        terminalOutput "  Email: $gitEmail"
-
-        if confirm "Is this your info?"; then
-            git config --global user.name "$gitName"
-            git config --global user.email "$gitEmail"
-        else
-            terminalOutput "You can update it now or later with:"
-            terminalOutput "  git config --global user.name \"Your Name\""
-            terminalOutput "  git config --global user.email \"you@example.com\""
-            terminalOutput "To change the defaults, edit GIT_USER_NAME/GIT_USER_EMAIL near the top of this script."
-
-            read -p "Enter your name (leave blank to skip): " gitNameInput
-            read -p "Enter your email (leave blank to skip): " gitEmailInput
-
-            if [ -n "$gitNameInput" ]; then
-                gitName="$gitNameInput"
-            fi
-
-            if [ -n "$gitEmailInput" ]; then
-                gitEmail="$gitEmailInput"
-            fi
-
-            if [ -n "$gitNameInput" ] || [ -n "$gitEmailInput" ]; then
-                if [ -n "$gitName" ]; then
-                    git config --global user.name "$gitName"
-                fi
-                if [ -n "$gitEmail" ]; then
-                    git config --global user.email "$gitEmail"
-                fi
-            fi
-        fi
+    if ! setGitIdentity; then
+        pause
+        return
     fi
     log "Git installation complete"
+    pause
+}
+
+function setGitIdentity() {
+    local targetUser="$USER"
+    local targetHome="$HOME"
+    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+        targetUser="$SUDO_USER"
+        targetHome=$(getent passwd "$targetUser" | cut -d: -f6)
+        if [ -z "$targetHome" ]; then
+            targetHome="$HOME"
+        fi
+    fi
+
+    local gitConfigCmd=(git config --global)
+    if [ "$targetUser" != "$USER" ]; then
+        gitConfigCmd=(sudo -u "$targetUser" env HOME="$targetHome" git config --global)
+    fi
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+        "${gitConfigCmd[@]}" user.name "$GIT_USER_NAME"
+        "${gitConfigCmd[@]}" user.email "$GIT_USER_EMAIL"
+        return 0
+    fi
+
+    if ! confirm "Would you like to set your Git identity now?"; then
+        terminalOutput "Skipped Git identity setup. You can set it later with:"
+        terminalOutput "  git config --global user.name \"Your Name\""
+        terminalOutput "  git config --global user.email \"you@example.com\""
+        terminalOutput "To change the defaults, edit GIT_USER_NAME/GIT_USER_EMAIL near the top of this script."
+        log "Git identity setup skipped"
+        return 1
+    fi
+
+    local gitName="$GIT_USER_NAME"
+    local gitEmail="$GIT_USER_EMAIL"
+
+    terminalOutput ""
+    terminalOutput "Git identity defaults:"
+    terminalOutput "  Name:  $gitName"
+    terminalOutput "  Email: $gitEmail"
+
+    if confirm "Is this your info?"; then
+        "${gitConfigCmd[@]}" user.name "$gitName"
+        "${gitConfigCmd[@]}" user.email "$gitEmail"
+        return 0
+    fi
+
+    terminalOutput "You can update it now or later with:"
+    terminalOutput "  git config --global user.name \"Your Name\""
+    terminalOutput "  git config --global user.email \"you@example.com\""
+    terminalOutput "To change the defaults, edit GIT_USER_NAME/GIT_USER_EMAIL near the top of this script."
+
+    promptInput "Enter your name (leave blank to skip): " gitNameInput
+    promptInput "Enter your email (leave blank to skip): " gitEmailInput
+
+    if [ -n "$gitNameInput" ]; then
+        gitName="$gitNameInput"
+    fi
+
+    if [ -n "$gitEmailInput" ]; then
+        gitEmail="$gitEmailInput"
+    fi
+
+    if [ -n "$gitNameInput" ] || [ -n "$gitEmailInput" ]; then
+        if [ -n "$gitName" ]; then
+            "${gitConfigCmd[@]}" user.name "$gitName"
+        fi
+        if [ -n "$gitEmail" ]; then
+            "${gitConfigCmd[@]}" user.email "$gitEmail"
+        fi
+    fi
+    return 0
+}
+
+function setGitIdentityMenu() {
+    clear
+    terminalOutput "======================================"
+    terminalOutput " Set Git Identity"
+    terminalOutput "======================================"
+
+    if ! command -v git >/dev/null 2>&1; then
+        terminalOutput "Git is not installed."
+        if confirm "Install Git now?"; then
+            installGit
+        else
+            terminalOutput "Canceled."
+        fi
+        return 0
+    fi
+
+    setGitIdentity
     pause
 }
 
@@ -404,7 +503,7 @@ function cloneGitHubRepo() {
     local action=""
 
     while true; do
-        read -p "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+        promptInput "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
 
         if [ "$repoUrl" = "q" ] || [ "$repoUrl" = "Q" ]; then
             terminalOutput "Canceled."
@@ -434,7 +533,7 @@ function cloneGitHubRepo() {
 
     defaultDir="$repoName"
     while true; do
-        read -p "Target folder [${defaultDir}]: " targetDir
+        promptInput "Target folder [${defaultDir}]: " targetDir
 
         if [ "$targetDir" = "q" ] || [ "$targetDir" = "Q" ]; then
             terminalOutput "Canceled."
@@ -459,7 +558,7 @@ function cloneGitHubRepo() {
     terminalOutput "  Dest: $targetDir"
 
     while true; do
-        read -p "Continue? [y/N]: " confirmAction
+        promptInput "Continue? [y/N]: " confirmAction
         if ! [[ "$confirmAction" =~ ^[Yy]$ ]]; then
             terminalOutput "Canceled."
             return 0
@@ -481,13 +580,13 @@ function cloneGitHubRepo() {
         terminalOutput "  3) Change target folder"
         terminalOutput "  4) Cancel"
 
-        read -p "Select [1-4]: " action
+        promptInput "Select [1-4]: " action
         case "$action" in
             1) ;;
             2)
                 repoUrl=""
                 while true; do
-                    read -p "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+                    promptInput "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
                     if [ "$repoUrl" = "q" ] || [ "$repoUrl" = "Q" ]; then
                         terminalOutput "Canceled."
                         return 0
@@ -515,7 +614,7 @@ function cloneGitHubRepo() {
             3)
                 targetDir=""
                 while true; do
-                    read -p "Target folder [${defaultDir}]: " targetDir
+                    promptInput "Target folder [${defaultDir}]: " targetDir
                     if [ "$targetDir" = "q" ] || [ "$targetDir" = "Q" ]; then
                         terminalOutput "Canceled."
                         return 0
@@ -1330,45 +1429,6 @@ function installPackagesFromList() {
     log "Package list installation complete"
 }
 
-function installAll() {
-    terminalOutput "======================================"
-    terminalOutput " Installing All Development Tools"
-    terminalOutput "======================================"
-    log "Starting installation of all development tools"
-    
-    if confirm "This will install Python, Node.js, Git, curl, wget, make, Docker, Docker Compose, zip, Golang, PHP, AWS CLI, Azure CLI, Google Cloud SDK, Terraform, OpenSSL, Composer, Laravel dependencies, Vim, and Postman CLI. Continue?"; then
-        installCurl
-        installWget
-        installGit
-        installMake
-        installZip
-        installPython
-        installNodeJS
-        installGolang
-        installPHP
-        installDocker
-        installDockerCompose
-        installAWSCLI
-        installAzureCLI
-        installGoogleCloudSDK
-        installTerraform
-        installOpenSSL
-        installComposer
-        installLaravelDeps
-        installVim
-        installPostman
-        
-        terminalOutput "======================================"
-        terminalOutput " All Development Tools Installed!"
-        terminalOutput "======================================"
-        log "All development tools installation complete"
-    else
-        terminalOutput "Installation canceled."
-        log "Installation canceled by user"
-    fi
-    pause
-}
-
 function printGroupHeader(){
     local title="$1"
     terminalOutput "${COLOR_BLUE}----- ${title} -----${COLOR_RESET}"
@@ -1395,6 +1455,232 @@ function printStatusLine(){
     fi
 }
 
+function normalizeVersion(){
+    local version="$1"
+    version=${version#v}
+    version=${version#go}
+    version=${version##*:}
+    version=${version%%-*}
+    echo "$version"
+}
+
+function isVersionNewer(){
+    local current="$1"
+    local latest="$2"
+    if [ -z "$current" ] || [ -z "$latest" ]; then
+        return 1
+    fi
+
+    if [ "$current" = "$latest" ]; then
+        return 1
+    fi
+
+    local sorted
+    sorted=$(printf "%s\n%s\n" "$current" "$latest" | sort -V | tail -n 1)
+    [ "$sorted" = "$latest" ]
+}
+
+function getVersionStatus(){
+    local current="$1"
+    local latest="$2"
+    if [ -z "$current" ]; then
+        echo "not-installed"
+        return
+    fi
+
+    if [ -z "$latest" ]; then
+        echo "installed"
+        return
+    fi
+
+    if isVersionNewer "$current" "$latest"; then
+        echo "update-available"
+    else
+        echo "up-to-date"
+    fi
+}
+
+function formatMenuLabel(){
+    local base="$1"
+    local status="$2"
+    local color=""
+    local text=""
+    case "$status" in
+        up-to-date)
+            color="$COLOR_GREEN"
+            text="${base} (Up to date)"
+            ;;
+        update-available)
+            color="$COLOR_YELLOW"
+            text="Update ${base}"
+            ;;
+        installed)
+            color="$COLOR_GREEN"
+            text="${base} (Installed)"
+            ;;
+        *)
+            text="Install ${base}"
+            ;;
+    esac
+    printf "%b%s%b" "$color" "$text" "$COLOR_RESET"
+}
+
+function getAptCandidateVersion(){
+    local pkg="$1"
+    apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/{print $2}'
+}
+
+function getPackageInstalledVersion(){
+    local pkg="$1"
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+    if [ "$pkgManager" = "apt" ]; then
+        dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null
+    elif [ "$pkgManager" = "yum" ] || [ "$pkgManager" = "dnf" ]; then
+        rpm -q --qf '%{VERSION}-%{RELEASE}' "$pkg" 2>/dev/null
+    fi
+}
+
+function getRpmUpdateVersion(){
+    local pkg="$1"
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+    if [ "$pkgManager" != "yum" ] && [ "$pkgManager" != "dnf" ]; then
+        return
+    fi
+
+    $pkgManager -q check-update "$pkg" 2>/dev/null | awk -v p="$pkg" '$1 ~ ("^"p"(\\.|$)") {print $2; exit}'
+}
+
+function getPackageLatestVersion(){
+    local pkg="$1"
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+    if [ "$pkgManager" = "apt" ]; then
+        getAptCandidateVersion "$pkg"
+    elif [ "$pkgManager" = "yum" ] || [ "$pkgManager" = "dnf" ]; then
+        getRpmUpdateVersion "$pkg"
+    fi
+}
+
+function getGoLatestVersion(){
+    if ! command -v curl >/dev/null 2>&1; then
+        return
+    fi
+    curl -s https://go.dev/dl/?mode=json | grep -m 1 -E '"version"[[:space:]]*:[[:space:]]*"go[^"]+"' | cut -d'"' -f4 | sed 's/^go//'
+}
+
+function getNodeLtsVersion(){
+    if ! command -v curl >/dev/null 2>&1; then
+        return
+    fi
+
+    curl -s https://nodejs.org/dist/index.json | \
+        awk '/"version":/ {v=$0} /"lts":/ {if ($0 !~ /"lts": (null|false)/) {print v; exit}}' | \
+        sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"v([^\"]+)".*/\1/'
+}
+
+function getDockerComposeLatestVersion(){
+    if ! command -v curl >/dev/null 2>&1; then
+        return
+    fi
+    curl -s https://api.github.com/repos/docker/compose/releases/latest | \
+        grep -m 1 '"tag_name"' | sed -E 's/.*"v?([^\"]+)".*/\1/'
+}
+
+function getNpmLatestVersion(){
+    local pkg="$1"
+    if ! command -v npm >/dev/null 2>&1; then
+        return
+    fi
+    npm view "$pkg" version 2>/dev/null | head -n 1
+}
+
+function isLaravelDepsInstalled(){
+    command -v php >/dev/null 2>&1 && \
+    command -v composer >/dev/null 2>&1 && \
+    command -v node >/dev/null 2>&1 && \
+    command -v zip >/dev/null 2>&1 && \
+    command -v unzip >/dev/null 2>&1
+}
+
+function normalizeVersion(){
+    local version="$1"
+    version=${version#v}
+    version=${version#go}
+    version=${version##*:}
+    version=${version%%-*}
+    echo "$version"
+}
+
+function isVersionNewer(){
+    local current="$1"
+    local latest="$2"
+    if [ -z "$current" ] || [ -z "$latest" ]; then
+        return 1
+    fi
+
+    if [ "$current" = "$latest" ]; then
+        return 1
+    fi
+
+    local sorted
+    sorted=$(printf "%s\n%s\n" "$current" "$latest" | sort -V | tail -n 1)
+    [ "$sorted" = "$latest" ]
+}
+
+function formatUpdateNote(){
+    local current="$1"
+    local latest="$2"
+    if isVersionNewer "$current" "$latest"; then
+        printf " (latest %s)" "$latest"
+    fi
+}
+
+function getAptCandidateVersion(){
+    local pkg="$1"
+    apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/{print $2}'
+}
+
+function getRpmUpdateVersion(){
+    local pkg="$1"
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+    if [ "$pkgManager" != "yum" ] && [ "$pkgManager" != "dnf" ]; then
+        return
+    fi
+
+    $pkgManager -q check-update "$pkg" 2>/dev/null | awk -v p="$pkg" '$1 ~ ("^"p"(\\.|$)") {print $2; exit}'
+}
+
+function getPackageLatestVersion(){
+    local pkg="$1"
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+    if [ "$pkgManager" = "apt" ]; then
+        getAptCandidateVersion "$pkg"
+    elif [ "$pkgManager" = "yum" ] || [ "$pkgManager" = "dnf" ]; then
+        getRpmUpdateVersion "$pkg"
+    fi
+}
+
+function getGoLatestVersion(){
+    if ! command -v curl >/dev/null 2>&1; then
+        return
+    fi
+    curl -s https://go.dev/dl/?mode=json | grep -m 1 -E '"version"[[:space:]]*:[[:space:]]*"go[^"]+"' | cut -d'"' -f4 | sed 's/^go//'
+}
+
+function getNodeLtsVersion(){
+    if ! command -v curl >/dev/null 2>&1; then
+        return
+    fi
+
+    curl -s https://nodejs.org/dist/index.json | \
+        awk '/"version":/ {v=$0} /"lts":/ {if ($0 !~ /"lts": (null|false)/) {print v; exit}}' | \
+        sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"v([^\"]+)".*/\1/'
+}
+
 function showVersions() {
     clear
     terminalOutput "======================================"
@@ -1403,27 +1689,74 @@ function showVersions() {
     terminalOutput ""
     printGroupHeader "Language Packages"
     if command -v python3 >/dev/null 2>&1; then
-        printStatusLine "Python->" "$(python3 --version)" 1 1
+        local pythonCurrent
+        local pythonLatest
+        local pythonNote
+        pythonCurrent=$(python3 --version | awk '{print $2}')
+        pythonLatest=$(getPackageLatestVersion "python3")
+        pythonNote=$(formatUpdateNote "$(normalizeVersion "$pythonCurrent")" "$(normalizeVersion "$pythonLatest")")
+        printStatusLine "Python->" "$(python3 --version)${pythonNote}" 1 1
     else
         printStatusLine "Python->" "Python: Not installed" 0
     fi
     if command -v pip3 >/dev/null 2>&1; then
-        printStatusLine "Python->" "$(pip3 --version)" 1 1
+        local pipCurrent
+        local pipLatest
+        local pipNote
+        pipCurrent=$(pip3 --version | awk '{print $2}')
+        pipLatest=$(getPackageLatestVersion "python3-pip")
+        pipNote=$(formatUpdateNote "$(normalizeVersion "$pipCurrent")" "$(normalizeVersion "$pipLatest")")
+        printStatusLine "Python->" "$(pip3 --version)${pipNote}" 1 1
     else
         printStatusLine "Python->" "pip3: Not installed" 0 1
     fi
     if command -v node >/dev/null 2>&1; then
-        printStatusLine "Node.js->" "$(node --version)" 1
+        local nodeCurrent
+        local nodeLatest
+        local nodeNote
+        nodeCurrent=$(getPackageInstalledVersion "nodejs")
+        if [ -z "$nodeCurrent" ]; then
+            nodeCurrent=$(node --version | sed 's/^v//')
+        fi
+        nodeLatest=$(getPackageLatestVersion "nodejs")
+        nodeNote=$(formatUpdateNote "$(normalizeVersion "$nodeCurrent")" "$(normalizeVersion "$nodeLatest")")
+        printStatusLine "Node.js->" "$(node --version)${nodeNote}" 1
     else
         printStatusLine "Node.js->" "Node.js: Not installed" 0 1
     fi
+    if command -v npm >/dev/null 2>&1; then
+        local npmCurrent
+        local npmLatest
+        local npmNote
+        npmCurrent=$(getPackageInstalledVersion "npm")
+        if [ -z "$npmCurrent" ]; then
+            npmCurrent=$(npm --version)
+        fi
+        npmLatest=$(getPackageLatestVersion "npm")
+        npmNote=$(formatUpdateNote "$(normalizeVersion "$npmCurrent")" "$(normalizeVersion "$npmLatest")")
+        printStatusLine "npm->" "$(npm --version)${npmNote}" 1 1
+    else
+        printStatusLine "npm->" "npm: Not installed" 0 1
+    fi
     if command -v go >/dev/null 2>&1; then
-        printStatusLine "Golang->" "$(go version)" 1
+        local goCurrent
+        local goLatest
+        local goNote
+        goCurrent=$(go version | awk '{print $3}' | sed 's/^go//')
+        goLatest=$(getGoLatestVersion)
+        goNote=$(formatUpdateNote "$(normalizeVersion "$goCurrent")" "$(normalizeVersion "$goLatest")")
+        printStatusLine "Golang->" "$(go version)${goNote}" 1
     else
         printStatusLine "Golang->" "Golang: Not installed" 0 1
     fi
     if command -v php >/dev/null 2>&1; then
-        printStatusLine "PHP->" "$(php --version | head -n 1)" 1
+        local phpCurrent
+        local phpLatest
+        local phpNote
+        phpCurrent=$(php --version | head -n 1 | awk '{print $2}')
+        phpLatest=$(getPackageLatestVersion "php")
+        phpNote=$(formatUpdateNote "$(normalizeVersion "$phpCurrent")" "$(normalizeVersion "$phpLatest")")
+        printStatusLine "PHP->" "$(php --version | head -n 1)${phpNote}" 1
     else
         printStatusLine "PHP->" "PHP: Not installed" 0
     fi
@@ -1533,30 +1866,31 @@ function showHelp(){
     terminalOutput ""
     terminalOutput "Menu Options (enter one or more numbers separated by spaces, e.g., 3 5 9 11 19):"
     terminalOutput "  1)  Install Python             - Python 3, pip, and development tools"
-    terminalOutput "  2)  Install Node.js & npm      - Node.js LTS and npm package manager"
-    terminalOutput "  3)  Install Git                - Git version control system"
-    terminalOutput "  4)  Install curl               - Command-line tool for HTTP requests"
-    terminalOutput "  5)  Install wget               - File download utility"
-    terminalOutput "  6)  Install make               - Build tools (make, gcc, g++)"
-    terminalOutput "  7)  Install Docker             - Docker Engine"
-    terminalOutput "  8)  Install Docker Compose     - Docker Compose (standalone)"
-    terminalOutput "  9)  Install zip/unzip          - Archive utilities"
-    terminalOutput "  10) Install Golang             - Go programming language"
-    terminalOutput "  11) Install PHP                - PHP and common extensions"
-    terminalOutput "  12) Install AWS CLI            - Amazon Web Services CLI"
-    terminalOutput "  13) Install Azure CLI          - Microsoft Azure CLI"
-    terminalOutput "  14) Install Google Cloud SDK   - Google Cloud Platform tools"
-    terminalOutput "  15) Install Terraform          - Infrastructure as Code tool"
-    terminalOutput "  16) Install OpenSSL            - Install OpenSSL"
-    terminalOutput "  17) Install Composer           - Install Composer"
-    terminalOutput "  18) Install Laravel Deps       - Install Laravel dependencies"
-    terminalOutput "  19) Install Vim                - Install Vim"
+    terminalOutput "  2)  Install Node.js            - Node.js LTS runtime"
+    terminalOutput "  3)  Install npm                - Node package manager"
+    terminalOutput "  4)  Install Golang             - Go programming language"
+    terminalOutput "  5)  Install PHP                - PHP and common extensions"
+    terminalOutput "  6)  Install Composer           - Install Composer"
+    terminalOutput "  7)  Install Laravel Deps       - Install Laravel dependencies"
+    terminalOutput "  8)  Install make               - Build tools (make, gcc, g++)"
+    terminalOutput "  9)  Install Docker             - Docker Engine"
+    terminalOutput "  10) Install Docker Compose     - Docker Compose (standalone)"
+    terminalOutput "  11) Install AWS CLI            - Amazon Web Services CLI"
+    terminalOutput "  12) Install Azure CLI          - Microsoft Azure CLI"
+    terminalOutput "  13) Install Google Cloud SDK   - Google Cloud Platform tools"
+    terminalOutput "  14) Install Terraform          - Infrastructure as Code tool"
+    terminalOutput "  15) Install wget               - File download utility"
+    terminalOutput "  16) Install zip/unzip          - Archive utilities"
+    terminalOutput "  17) Install Git                - Git version control system"
+    terminalOutput "  18) Install curl               - Command-line tool for HTTP requests"
+    terminalOutput "  19) Install OpenSSL            - Install OpenSSL"
     terminalOutput "  20) Install Postman CLI        - Install Postman CLI"
-    terminalOutput "  21) Install All Tools          - Install everything at once"
+    terminalOutput "  21) Install Vim                - Install Vim"
     terminalOutput "  22) Clone GitHub Repo (HTTPS)  - Clone a GitHub repository"
-    terminalOutput "  23) Show Installed Versions    - Display versions of installed tools"
-    terminalOutput "  24) CLI Options                - Show command line options"
-    terminalOutput "  25) Help                       - Show menu options"
+    terminalOutput "  23) Set Git Identity           - Configure git user.name and user.email"
+    terminalOutput "  24) Show Installed Versions    - Display versions of installed tools"
+    terminalOutput "  25) CLI Options                - Show command line options"
+    terminalOutput "  26) Help                       - Show menu options"
     terminalOutput "  0)  Exit                       - Quit the script"
     if [ "$mode" = "exit" ]; then
         pause "Press [Enter] to exit..."
@@ -1572,9 +1906,9 @@ function showCliOptions(){
     terminalOutput ""
     terminalOutput "Usage: ./setup-env.sh [OPTION]"
     terminalOutput ""
-    terminalOutput "  --install-all               Install all development tools"
     terminalOutput "  --install-python            Install Python"
     terminalOutput "  --install-nodejs            Install Node.js"
+    terminalOutput "  --install-npm               Install npm"
     terminalOutput "  --install-git               Install Git"
     terminalOutput "  --install-curl              Install curl"
     terminalOutput "  --install-wget              Install wget"
@@ -1616,49 +1950,243 @@ function showMenu(){
     local YELLOW="\033[0;33m"
     local RESET="\033[0m"
 
+    local pythonCurrent pythonLatest pythonStatus pythonLabel
+    pythonCurrent=""
+    if command -v python3 >/dev/null 2>&1; then
+        pythonCurrent=$(python3 --version | awk '{print $2}')
+    fi
+    pythonLatest=$(getPackageLatestVersion "python3")
+    pythonStatus=$(getVersionStatus "$(normalizeVersion "$pythonCurrent")" "$(normalizeVersion "$pythonLatest")")
+    pythonLabel=$(formatMenuLabel "Python" "$pythonStatus")
+
+    local nodeCurrent nodeLatest nodeStatus nodeLabel
+    nodeCurrent=$(getPackageInstalledVersion "nodejs")
+    if [ -z "$nodeCurrent" ] && command -v node >/dev/null 2>&1; then
+        nodeCurrent=$(node --version | sed 's/^v//')
+    fi
+    nodeLatest=$(getPackageLatestVersion "nodejs")
+    nodeStatus=$(getVersionStatus "$(normalizeVersion "$nodeCurrent")" "$(normalizeVersion "$nodeLatest")")
+    nodeLabel=$(formatMenuLabel "Node.js" "$nodeStatus")
+
+    local npmCurrent npmLatest npmStatus npmLabel
+    npmCurrent=$(getPackageInstalledVersion "npm")
+    if [ -z "$npmCurrent" ] && command -v npm >/dev/null 2>&1; then
+        npmCurrent=$(npm --version)
+    fi
+    npmLatest=$(getPackageLatestVersion "npm")
+    npmStatus=$(getVersionStatus "$(normalizeVersion "$npmCurrent")" "$(normalizeVersion "$npmLatest")")
+    npmLabel=$(formatMenuLabel "npm" "$npmStatus")
+
+    local goCurrent goLatest goStatus goLabel
+    goCurrent=""
+    if command -v go >/dev/null 2>&1; then
+        goCurrent=$(go version | awk '{print $3}' | sed 's/^go//')
+    fi
+    goLatest=$(getGoLatestVersion)
+    goStatus=$(getVersionStatus "$(normalizeVersion "$goCurrent")" "$(normalizeVersion "$goLatest")")
+    goLabel=$(formatMenuLabel "Golang" "$goStatus")
+
+    local phpCurrent phpLatest phpStatus phpLabel
+    phpCurrent=""
+    if command -v php >/dev/null 2>&1; then
+        phpCurrent=$(php --version | head -n 1 | awk '{print $2}')
+    fi
+    phpLatest=$(getPackageLatestVersion "php")
+    phpStatus=$(getVersionStatus "$(normalizeVersion "$phpCurrent")" "$(normalizeVersion "$phpLatest")")
+    phpLabel=$(formatMenuLabel "PHP" "$phpStatus")
+
+    local composerCurrent composerLatest composerStatus composerLabel
+    composerCurrent=""
+    if command -v composer >/dev/null 2>&1; then
+        composerCurrent=$(composer --version 2>/dev/null | awk '{print $3}')
+    fi
+    composerLatest=$(getPackageLatestVersion "composer")
+    composerStatus=$(getVersionStatus "$(normalizeVersion "$composerCurrent")" "$(normalizeVersion "$composerLatest")")
+    composerLabel=$(formatMenuLabel "Composer" "$composerStatus")
+
+    local laravelStatus laravelLabel
+    if isLaravelDepsInstalled; then
+        laravelStatus="installed"
+    else
+        laravelStatus="not-installed"
+    fi
+    laravelLabel=$(formatMenuLabel "Laravel Dependencies" "$laravelStatus")
+
+    local makeCurrent makeLatest makeStatus makeLabel
+    makeCurrent=""
+    if command -v make >/dev/null 2>&1; then
+        makeCurrent=$(make --version | head -n 1 | awk '{print $3}')
+    fi
+    makeLatest=$(getPackageLatestVersion "make")
+    makeStatus=$(getVersionStatus "$(normalizeVersion "$makeCurrent")" "$(normalizeVersion "$makeLatest")")
+    makeLabel=$(formatMenuLabel "make" "$makeStatus")
+
+    local dockerCurrent dockerLatest dockerStatus dockerLabel
+    dockerCurrent=""
+    if command -v docker >/dev/null 2>&1; then
+        dockerCurrent=$(docker --version | awk '{print $3}' | tr -d ',')
+    fi
+    dockerLatest=$(getPackageLatestVersion "docker-ce")
+    if [ -z "$dockerLatest" ]; then
+        dockerLatest=$(getPackageLatestVersion "docker.io")
+    fi
+    dockerStatus=$(getVersionStatus "$(normalizeVersion "$dockerCurrent")" "$(normalizeVersion "$dockerLatest")")
+    dockerLabel=$(formatMenuLabel "Docker" "$dockerStatus")
+
+    local composeCurrent composeLatest composeStatus composeLabel
+    composeCurrent=""
+    if command -v docker-compose >/dev/null 2>&1; then
+        composeCurrent=$(docker-compose --version | awk '{print $3}' | tr -d ',')
+    elif docker compose version >/dev/null 2>&1; then
+        composeCurrent=$(docker compose version 2>/dev/null | awk '{print $4}' | sed 's/^v//')
+    fi
+    composeLatest=$(getDockerComposeLatestVersion)
+    composeStatus=$(getVersionStatus "$(normalizeVersion "$composeCurrent")" "$(normalizeVersion "$composeLatest")")
+    composeLabel=$(formatMenuLabel "Docker Compose" "$composeStatus")
+
+    local awsCurrent awsLatest awsStatus awsLabel
+    awsCurrent=""
+    if command -v aws >/dev/null 2>&1; then
+        awsCurrent=$(aws --version 2>/dev/null | awk -F'[ /]' '{print $2}')
+    fi
+    awsLatest=$(getPackageLatestVersion "awscli")
+    awsStatus=$(getVersionStatus "$(normalizeVersion "$awsCurrent")" "$(normalizeVersion "$awsLatest")")
+    awsLabel=$(formatMenuLabel "AWS CLI" "$awsStatus")
+
+    local azureCurrent azureLatest azureStatus azureLabel
+    azureCurrent=""
+    if command -v az >/dev/null 2>&1; then
+        azureCurrent=$(az version --output tsv 2>/dev/null | head -n 1 | awk '{print $2}')
+    fi
+    azureLatest=$(getPackageLatestVersion "azure-cli")
+    azureStatus=$(getVersionStatus "$(normalizeVersion "$azureCurrent")" "$(normalizeVersion "$azureLatest")")
+    azureLabel=$(formatMenuLabel "Azure CLI" "$azureStatus")
+
+    local gcloudCurrent gcloudLatest gcloudStatus gcloudLabel
+    gcloudCurrent=""
+    if command -v gcloud >/dev/null 2>&1; then
+        gcloudCurrent=$(gcloud version 2>/dev/null | head -n 1 | awk '{print $4}')
+    fi
+    gcloudLatest=$(getPackageLatestVersion "google-cloud-sdk")
+    gcloudStatus=$(getVersionStatus "$(normalizeVersion "$gcloudCurrent")" "$(normalizeVersion "$gcloudLatest")")
+    gcloudLabel=$(formatMenuLabel "Google Cloud SDK" "$gcloudStatus")
+
+    local terraformCurrent terraformLatest terraformStatus terraformLabel
+    terraformCurrent=""
+    if command -v terraform >/dev/null 2>&1; then
+        terraformCurrent=$(terraform --version | head -n 1 | awk '{print $2}')
+    fi
+    terraformLatest=$(getPackageLatestVersion "terraform")
+    terraformStatus=$(getVersionStatus "$(normalizeVersion "$terraformCurrent")" "$(normalizeVersion "$terraformLatest")")
+    terraformLabel=$(formatMenuLabel "Terraform" "$terraformStatus")
+
+    local wgetCurrent wgetLatest wgetStatus wgetLabel
+    wgetCurrent=""
+    if command -v wget >/dev/null 2>&1; then
+        wgetCurrent=$(wget --version | head -n 1 | awk '{print $3}')
+    fi
+    wgetLatest=$(getPackageLatestVersion "wget")
+    wgetStatus=$(getVersionStatus "$(normalizeVersion "$wgetCurrent")" "$(normalizeVersion "$wgetLatest")")
+    wgetLabel=$(formatMenuLabel "wget" "$wgetStatus")
+
+    local zipCurrent zipLatest zipStatus zipLabel
+    zipCurrent=""
+    if command -v zip >/dev/null 2>&1; then
+        zipCurrent=$(zip --version | head -n 1 | awk '{print $2}')
+    fi
+    zipLatest=$(getPackageLatestVersion "zip")
+    zipStatus=$(getVersionStatus "$(normalizeVersion "$zipCurrent")" "$(normalizeVersion "$zipLatest")")
+    zipLabel=$(formatMenuLabel "zip/unzip" "$zipStatus")
+
+    local gitCurrent gitLatest gitStatus gitLabel
+    gitCurrent=""
+    if command -v git >/dev/null 2>&1; then
+        gitCurrent=$(git --version | awk '{print $3}')
+    fi
+    gitLatest=$(getPackageLatestVersion "git")
+    gitStatus=$(getVersionStatus "$(normalizeVersion "$gitCurrent")" "$(normalizeVersion "$gitLatest")")
+    gitLabel=$(formatMenuLabel "Git" "$gitStatus")
+
+    local curlCurrent curlLatest curlStatus curlLabel
+    curlCurrent=""
+    if command -v curl >/dev/null 2>&1; then
+        curlCurrent=$(curl --version | head -n 1 | awk '{print $2}')
+    fi
+    curlLatest=$(getPackageLatestVersion "curl")
+    curlStatus=$(getVersionStatus "$(normalizeVersion "$curlCurrent")" "$(normalizeVersion "$curlLatest")")
+    curlLabel=$(formatMenuLabel "curl" "$curlStatus")
+
+    local opensslCurrent opensslLatest opensslStatus opensslLabel
+    opensslCurrent=""
+    if command -v openssl >/dev/null 2>&1; then
+        opensslCurrent=$(openssl version | awk '{print $2}')
+    fi
+    opensslLatest=$(getPackageLatestVersion "openssl")
+    opensslStatus=$(getVersionStatus "$(normalizeVersion "$opensslCurrent")" "$(normalizeVersion "$opensslLatest")")
+    opensslLabel=$(formatMenuLabel "OpenSSL" "$opensslStatus")
+
+    local postmanCurrent postmanLatest postmanStatus postmanLabel
+    postmanCurrent=""
+    if command -v postman >/dev/null 2>&1; then
+        postmanCurrent=$(postman --version 2>/dev/null | awk -F'/' '{print $2}')
+    fi
+    postmanLatest=$(getNpmLatestVersion "postman-cli")
+    postmanStatus=$(getVersionStatus "$(normalizeVersion "$postmanCurrent")" "$(normalizeVersion "$postmanLatest")")
+    postmanLabel=$(formatMenuLabel "Postman CLI" "$postmanStatus")
+
+    local vimCurrent vimLatest vimStatus vimLabel
+    vimCurrent=$(getPackageInstalledVersion "vim")
+    if [ -z "$vimCurrent" ] && command -v vim >/dev/null 2>&1; then
+        vimCurrent=$(vim --version | head -n 1 | awk '{print $5}')
+    fi
+    vimLatest=$(getPackageLatestVersion "vim")
+    vimStatus=$(getVersionStatus "$(normalizeVersion "$vimCurrent")" "$(normalizeVersion "$vimLatest")")
+    vimLabel=$(formatMenuLabel "Vim" "$vimStatus")
+
     terminalOutput "${GREEN}======================================${RESET}"
     terminalOutput "${GREEN} Dev Environment Setup - v$SCRIPT_VERSION${RESET}"
     terminalOutput "${GREEN}======================================${RESET}"
-    terminalOutput "1)  Install Python"
-    terminalOutput "2)  Install Node.js & npm"
-    terminalOutput "3)  Install Git"
-    terminalOutput "4)  Install curl"
-    terminalOutput "5)  Install wget"
-    terminalOutput "6)  Install make"
-    terminalOutput "7)  Install Docker"
-    terminalOutput "8)  Install Docker Compose"
-    terminalOutput "9)  Install zip/unzip"
-    terminalOutput "10) Install Golang"
-    terminalOutput "11) Install PHP"
-    terminalOutput "12) Install AWS CLI"
-    terminalOutput "13) Install Azure CLI"
-    terminalOutput "14) Install Google Cloud SDK"
-    terminalOutput "15) Install Terraform"
-    terminalOutput "16) Install OpenSSL"
-    terminalOutput "17) Install Composer"
-    terminalOutput "18) Install Laravel Dependencies"
-    terminalOutput "19) Install Vim"
-    terminalOutput "20) Install Postman CLI"
-    terminalOutput "21) Install All Tools"
+    terminalOutput "1)  ${pythonLabel}"
+    terminalOutput "2)  ${nodeLabel}"
+    terminalOutput "3)  ${npmLabel}"
+    terminalOutput "4)  ${goLabel}"
+    terminalOutput "5)  ${phpLabel}"
+    terminalOutput "6)  ${composerLabel}"
+    terminalOutput "7)  ${laravelLabel}"
+    terminalOutput "8)  ${makeLabel}"
+    terminalOutput "9)  ${dockerLabel}"
+    terminalOutput "10) ${composeLabel}"
+    terminalOutput "11) ${awsLabel}"
+    terminalOutput "12) ${azureLabel}"
+    terminalOutput "13) ${gcloudLabel}"
+    terminalOutput "14) ${terraformLabel}"
+    terminalOutput "15) ${wgetLabel}"
+    terminalOutput "16) ${zipLabel}"
+    terminalOutput "17) ${gitLabel}"
+    terminalOutput "18) ${curlLabel}"
+    terminalOutput "19) ${opensslLabel}"
+    terminalOutput "20) ${postmanLabel}"
+    terminalOutput "21) ${vimLabel}"
     terminalOutput "22) Clone GitHub Repo (HTTPS)"
-    terminalOutput "23) Show Installed Versions"
-    terminalOutput "24) CLI Options"
-    terminalOutput "25) Help"
+    terminalOutput "23) Set Git Identity"
+    terminalOutput "24) Show Installed Versions"
+    terminalOutput "25) CLI Options"
+    terminalOutput "26) Help"
     terminalOutput "0)  Exit"
     terminalOutput "======================================"
     terminalOutput "Tip: Enter one or more numbers separated by spaces (e.g., 3 5 9 11 19)."
-    printf "%b" "${YELLOW}Choose option(s) [0-25] (space-separated): ${RESET}"
+    printf "%b" "${YELLOW}Choose option(s) [0-26] (space-separated): ${RESET}"
     read -r -a choices
 
     if [ "${#choices[@]}" -eq 0 ]; then
-        terminalOutput "Invalid input. Please enter one or more numbers between 0 and 24."
+        terminalOutput "Invalid input. Please enter one or more numbers between 0 and 26."
         sleep 2
         return
     fi
 
     for choice in "${choices[@]}"; do
-        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 25 ]; then
-            terminalOutput "Invalid input. Please enter numbers between 0 and 25."
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 26 ]; then
+            terminalOutput "Invalid input. Please enter numbers between 0 and 26."
             sleep 2
             return
         fi
@@ -1668,29 +2196,72 @@ function showMenu(){
         case $choice in
             1) installPython ;;
             2) installNodeJS ;;
-            3) installGit ;;
-            4) installCurl ;;
-            5) installWget ;;
-            6) installMake ;;
-            7) installDocker ;;
-            8) installDockerCompose ;;
-            9) installZip ;;
-            10) installGolang ;;
-            11) installPHP ;;
-            12) installAWSCLI ;;
-            13) installAzureCLI ;;
-            14) installGoogleCloudSDK ;;
-            15) installTerraform ;;
-            16) installOpenSSL ;;
-            17) installComposer ;;
-            18) installLaravelDeps ;;
-            19) installVim ;;
+            3) installNpm ;;
+            4) installGolang ;;
+            5) installPHP ;;
+            6) installComposer ;;
+            7) installLaravelDeps ;;
+            8) installMake ;;
+            9)
+                warnWslDocker
+                if [ "$dockerStatus" = "update-available" ]; then
+                    if confirm "Update Docker now?"; then
+                        installDocker
+                    else
+                        terminalOutput "Canceled."
+                    fi
+                elif [ "$dockerStatus" = "up-to-date" ] || [ "$dockerStatus" = "installed" ]; then
+                    if confirm "Docker is already installed. Reinstall anyway?"; then
+                        installDocker
+                    else
+                        terminalOutput "Canceled."
+                    fi
+                else
+                    if confirm "Install Docker now?"; then
+                        installDocker
+                    else
+                        terminalOutput "Canceled."
+                    fi
+                fi
+                ;;
+            10)
+                warnWslDocker
+                if [ "$composeStatus" = "update-available" ]; then
+                    if confirm "Update Docker Compose now?"; then
+                        installDockerCompose
+                    else
+                        terminalOutput "Canceled."
+                    fi
+                elif [ "$composeStatus" = "up-to-date" ] || [ "$composeStatus" = "installed" ]; then
+                    if confirm "Docker Compose is already installed. Reinstall anyway?"; then
+                        installDockerCompose
+                    else
+                        terminalOutput "Canceled."
+                    fi
+                else
+                    if confirm "Install Docker Compose now?"; then
+                        installDockerCompose
+                    else
+                        terminalOutput "Canceled."
+                    fi
+                fi
+                ;;
+            11) installAWSCLI ;;
+            12) installAzureCLI ;;
+            13) installGoogleCloudSDK ;;
+            14) installTerraform ;;
+            15) installWget ;;
+            16) installZip ;;
+            17) installGit ;;
+            18) installCurl ;;
+            19) installOpenSSL ;;
             20) installPostman ;;
-            21) installAll ;;
+            21) installVim ;;
             22) cloneGitHubRepo ;;
-            23) showVersions ;;
-            24) showCliOptions ;;
-            25) showHelp ;;
+            23) setGitIdentityMenu ;;
+            24) showVersions ;;
+            25) showCliOptions ;;
+            26) showHelp ;;
             0) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
         esac
     done
@@ -1709,14 +2280,14 @@ if [ "$#" -gt 0 ]; then
 fi
 
 # Parse command line arguments
-if [[ "$1" == "--install-all" ]]; then
-    installAll
-    exit 0
-elif [[ "$1" == "--install-python" ]]; then
+if [[ "$1" == "--install-python" ]]; then
     installPython
     exit 0
 elif [[ "$1" == "--install-nodejs" ]]; then
     installNodeJS
+    exit 0
+elif [[ "$1" == "--install-npm" ]]; then
+    installNpm
     exit 0
 elif [[ "$1" == "--install-git" ]]; then
     installGit

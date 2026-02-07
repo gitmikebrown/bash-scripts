@@ -17,6 +17,20 @@
 # ./system-rebootV2.sh --help   # Show detailed help
 # ./system-rebootV2.sh          # Interactive mode
 
+COLOR_YELLOW="\033[0;33m"
+COLOR_RESET="\033[0m"
+
+function promptInput(){
+    local prompt="$1"
+    local varName="$2"
+    printf "%b" "${COLOR_YELLOW}${prompt}${COLOR_RESET}"
+    if [ -n "$varName" ]; then
+        read -r "$varName"
+    else
+        read -r
+    fi
+}
+
 ################################################################################################
 #### Functions
 ################################################################################################
@@ -224,7 +238,7 @@ function systemReboot() {
     
     # If no arguments provided, prompt user
     if [ $# -eq 0 ]; then
-        read -p "Do you want to reboot now? (y/n): " choice
+        promptInput "Do you want to reboot now? (y/n): " choice
         if [[ "$choice" =~ ^[Yy]$ ]]; then
             printf "\n${text_Red}"
             printf "${timeNowMessage}\n"

@@ -3,7 +3,7 @@
 # Author: Michael Brown
 # Version: 1.3.0
 # Date: Updated 10/5/2025
-# Description: Menu-driven Ubuntu update/upgrade manager with logging, input validation, and help
+# Description: Menu-driven system update/upgrade manager with logging, input validation, and help
 
 ################################################################################################
 #### HOW TO USE THIS SCRIPT - Examples and Quick Reference
@@ -21,7 +21,7 @@
 #   ./system-update.sh                  # Starts the interactive menu
 #   ./system-update.sh --update-only    # Run standard update in quiet mode
 #   ./system-update.sh --full-upgrade   # Run full upgrade without menu
-#   ./system-update.sh --ubuntuUpdateOS # Run OS upgrade without menu
+#   ./system-update.sh --ubuntuUpdateOS # Run OS upgrade without menu (Ubuntu only)
 
 # COMMON SCENARIOS:
 #
@@ -42,7 +42,7 @@
 # When you run ./system-update.sh, you'll see a menu with these options:
 #   1. Update package lists         - Refreshes available package information
 #   2. Upgrade packages            - Installs available package updates
-#   3. Full system upgrade         - Complete system upgrade (dist-upgrade)
+#   3. Full system upgrade         - Complete system upgrade (apt full upgrade, or yum/dnf upgrade)
 #   4. Clean package cache         - Removes old downloaded package files
 #   5. Autoremove unused packages  - Removes packages no longer needed
 #   6. Show system information     - Displays system stats and package info
@@ -92,6 +92,10 @@ LOGFILE="/var/log/ubuntu-update-script.log"
 # Quiet mode (suppress non-essential output)
 QUIET_MODE=false
 
+# Prompt colors
+COLOR_YELLOW="\033[0;33m"
+COLOR_RESET="\033[0m"
+
 
 ################################################################################################
 #### Detect Package Manager
@@ -103,7 +107,9 @@ QUIET_MODE=false
 #DO-NOT use the terminalOutput function in this function as 
 # it is used in other functions that call terminalOutput
 function detectPackageManager() {
-    if command -v yum >/dev/null 2>&1; then
+    if command -v dnf >/dev/null 2>&1; then
+        echo "dnf"
+    elif command -v yum >/dev/null 2>&1; then
         echo "yum"
     elif command -v apt >/dev/null 2>&1; then
         echo "apt"
@@ -145,47 +151,69 @@ function terminalOutput() {
 ################################################################################################
 
 function showSystemSummary(){
-#TODO: the function titled detectPackageManager is not incorporated into summary yet.  
-# Currently supports apt only.
+    local pkgManager
+    pkgManager=$(detectPackageManager)
 
     terminalOutput "======================================"
-    terminalOutput " Ubuntu System Summary"
+    terminalOutput " System Summary"
     terminalOutput "======================================"
 
-    # Current version
-    current_version=$(lsb_release -rs)
-    terminalOutput "Current Ubuntu Version: $current_version"
-
-    # Upgradeable packages
-    terminalOutput ""
-    terminalOutput "Checking for upgradeable packages..."
-    upgradable_count=$(apt-get -s upgrade | awk '/^Inst /' | wc -l)
-    terminalOutput "Packages available for upgrade: $upgradable_count"
-
-    if [ "$upgradable_count" -gt 0 ]; then
-        terminalOutput "Sample upgradeable packages:"
-        apt-get -s upgrade | awk '/^Inst / {print $2}' | head -5
+    if [ -f /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        terminalOutput "System: ${PRETTY_NAME:-Unknown}"
     fi
 
-    # Full-upgrade simulation
-    terminalOutput ""
-    terminalOutput "Checking full-upgrade impact..."
-    full_upgrade_preview=$(apt-get -s dist-upgrade | awk '/^Inst /')
-    if [ -z "$full_upgrade_preview" ]; then
-        terminalOutput "No packages require full-upgrade."
-    else
-        terminalOutput "Packages affected by full-upgrade:"
-        terminalOutput "$full_upgrade_preview" | head -5
-    fi
+    if [ "$pkgManager" = "apt" ]; then
+        current_version=$(lsb_release -rs 2>/dev/null)
+        if [ -n "$current_version" ]; then
+            terminalOutput "Current Ubuntu Version: $current_version"
+        fi
 
-    # Release upgrade availability
-    terminalOutput ""
-    terminalOutput "Checking for Ubuntu release upgrade..."
-    next_version=$(do-release-upgrade -c | grep "New release" | awk -F': ' '{print $2}')
-    if [ -z "$next_version" ]; then
-        terminalOutput "You are running the latest supported release."
+        terminalOutput ""
+        terminalOutput "Checking for upgradeable packages..."
+        upgradable_count=$(apt-get -s upgrade | awk '/^Inst /' | wc -l)
+        terminalOutput "Packages available for upgrade: $upgradable_count"
+
+        if [ "$upgradable_count" -gt 0 ]; then
+            terminalOutput "Sample upgradeable packages:"
+            apt-get -s upgrade | awk '/^Inst / {print $2}' | head -5
+        fi
+
+        terminalOutput ""
+        terminalOutput "Checking full-upgrade impact..."
+        full_upgrade_preview=$(apt-get -s dist-upgrade | awk '/^Inst /')
+        if [ -z "$full_upgrade_preview" ]; then
+            terminalOutput "No packages require full-upgrade."
+        else
+            terminalOutput "Packages affected by full-upgrade:"
+            terminalOutput "$full_upgrade_preview" | head -5
+        fi
+
+        terminalOutput ""
+        terminalOutput "Checking for Ubuntu release upgrade..."
+        next_version=$(do-release-upgrade -c 2>/dev/null | grep "New release" | awk -F': ' '{print $2}')
+        if [ -z "$next_version" ]; then
+            terminalOutput "You are running the latest supported release."
+        else
+            terminalOutput "New Ubuntu release available: $next_version"
+        fi
+    elif [ "$pkgManager" = "yum" ] || [ "$pkgManager" = "dnf" ]; then
+        terminalOutput ""
+        terminalOutput "Checking for upgradeable packages..."
+        update_output=$($pkgManager -q check-update 2>/dev/null || true)
+        upgradable_count=$(echo "$update_output" | awk 'NF==3 {count++} END{print count+0}')
+        terminalOutput "Packages available for upgrade: $upgradable_count"
+
+        if [ "$upgradable_count" -gt 0 ]; then
+            terminalOutput "Sample upgradeable packages:"
+            echo "$update_output" | awk 'NF==3 {print $1}' | head -5
+        fi
+
+        terminalOutput ""
+        terminalOutput "OS upgrades are managed by your distribution tools."
     else
-        terminalOutput "New Ubuntu release available: $next_version"
+        terminalOutput "Package manager not detected."
     fi
 
     terminalOutput "======================================"
@@ -196,6 +224,17 @@ function showSystemSummary(){
 #### Utility Functions
 ################################################################################################
 
+function promptInput(){
+    local prompt="$1"
+    local varName="$2"
+    printf "%b" "${COLOR_YELLOW}${prompt}${COLOR_RESET}"
+    if [ -n "$varName" ]; then
+        read -r "$varName"
+    else
+        read -r
+    fi
+}
+
 function log(){
     if [ "$LOGGING_ENABLED" = true ]; then
         terminalOutput "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
@@ -203,11 +242,11 @@ function log(){
 }
 
 function pause(){
-    read -p "Press [Enter] to return to the menu..."
+    promptInput "Press [Enter] to return to the menu..."
 }
 
 function confirm(){
-    read -p "$1 [y/N]: " response
+    promptInput "$1 [y/N]: " response
     [[ "$response" =~ ^[Yy]$ ]]
 }
 
@@ -240,6 +279,10 @@ function runUpdate(){
             sudo yum autoremove
         fi
         sudo yum clean all
+    elif [ "$pkgManager" = "dnf" ]; then
+        sudo dnf -y upgrade
+        sudo dnf -y autoremove || true
+        sudo dnf clean all
         return
     fi
     terminalOutput "Standard update complete."
@@ -252,6 +295,14 @@ function runUpdate(){
 ################################################################################################
 
 function ubuntuUpdateOS(){
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+    if [ "$pkgManager" != "apt" ]; then
+        terminalOutput "OS upgrades are only supported on Ubuntu/Debian in this script."
+        pause
+        return
+    fi
+
     terminalOutput "Checking current Ubuntu version..."
     current_version=$(lsb_release -rs)
     terminalOutput "You are currently running Ubuntu $current_version."
@@ -281,28 +332,56 @@ function ubuntuUpdateOS(){
 ################################################################################################
 
 function ubuntuFullUpgrade(){
-    log "Checking for packages requiring full upgrade"
-    terminalOutput "Checking for packages requiring full upgrade..."
+    local pkgManager
+    pkgManager=$(detectPackageManager)
 
-    # Simulate full-upgrade to preview changes
-    pending=$(apt-get -s dist-upgrade | awk '/^Inst /')
+    if [ "$pkgManager" = "apt" ]; then
+        log "Checking for packages requiring full upgrade"
+        terminalOutput "Checking for packages requiring full upgrade..."
 
-    if [ -z "$pending" ]; then
-        terminalOutput "No packages require a full upgrade. System is up to date."
-        log "Full upgrade skipped — no packages pending"
-    else
-        terminalOutput "The following packages are eligible for full upgrade:"
-        terminalOutput "$pending"
-        terminalOutput ""
-        if confirm "Would you like to proceed with the full upgrade?"; then
-            log "User confirmed full upgrade"
-            terminalOutput "Running full upgrade..."
-            sudo apt-get -y dist-upgrade
-            log "Full upgrade complete"
+        pending=$(apt-get -s dist-upgrade | awk '/^Inst /')
+
+        if [ -z "$pending" ]; then
+            terminalOutput "No packages require a full upgrade. System is up to date."
+            log "Full upgrade skipped — no packages pending"
         else
-            terminalOutput "Full upgrade canceled."
-            log "Full upgrade canceled by user"
+            terminalOutput "The following packages are eligible for full upgrade:"
+            terminalOutput "$pending"
+            terminalOutput ""
+            if confirm "Would you like to proceed with the full upgrade?"; then
+                log "User confirmed full upgrade"
+                terminalOutput "Running full upgrade..."
+                sudo apt-get -y dist-upgrade
+                log "Full upgrade complete"
+            else
+                terminalOutput "Full upgrade canceled."
+                log "Full upgrade canceled by user"
+            fi
         fi
+        pause
+        return
+    fi
+
+    if confirm "Would you like to proceed with the full upgrade?"; then
+        log "User confirmed full upgrade"
+        terminalOutput "Running full upgrade..."
+        if [ "$pkgManager" = "yum" ]; then
+            sudo yum upgrade -y
+            if command -v yum-autoremove >/dev/null 2>&1; then
+                sudo yum autoremove
+            fi
+            sudo yum clean all
+        elif [ "$pkgManager" = "dnf" ]; then
+            sudo dnf -y upgrade
+            sudo dnf -y autoremove || true
+            sudo dnf clean all
+        else
+            terminalOutput "Package manager not detected."
+        fi
+        log "Full upgrade complete"
+    else
+        terminalOutput "Full upgrade canceled."
+        log "Full upgrade canceled by user"
     fi
     pause
 }
@@ -312,15 +391,30 @@ function ubuntuFullUpgrade(){
 ################################################################################################
 
 function showHelp(){
-    terminalOutput "Ubuntu Update Manager - Version $SCRIPT_VERSION"
+    local pkgManager
+    pkgManager=$(detectPackageManager)
+
+    if [ "$pkgManager" = "apt" ]; then
+        terminalOutput "Ubuntu Update Manager - Version $SCRIPT_VERSION"
+    else
+        terminalOutput "System Update Manager - Version $SCRIPT_VERSION"
+    fi
     terminalOutput ""
     terminalOutput "Menu Options:"
-    terminalOutput "  1) Standard Update & Cleanup - Runs apt update/upgrade and cleanup commands"
-    terminalOutput "  2) Upgrade to Latest Ubuntu Version - Uses do-release-upgrade for LTS upgrades"
-    terminalOutput "  3) Full Upgrade - Runs apt full-upgrade"
-    terminalOutput "  4) Show System Summary - Displays system stats and package info"
-    terminalOutput "  5) Help - Show this usage summary"
-    terminalOutput "  6) Exit - Quit the script"
+    if [ "$pkgManager" = "apt" ]; then
+        terminalOutput "  1) Standard Update & Cleanup - Runs update/upgrade and cleanup commands"
+        terminalOutput "  2) Upgrade to Latest Ubuntu Version - Uses do-release-upgrade (Ubuntu only)"
+        terminalOutput "  3) Full Upgrade - Runs full upgrade for your package manager"
+        terminalOutput "  4) Show System Summary - Displays system stats and package info"
+        terminalOutput "  5) Help - Show this usage summary"
+        terminalOutput "  6) Exit - Quit the script"
+    else
+        terminalOutput "  1) Standard Update & Cleanup - Runs update/upgrade and cleanup commands"
+        terminalOutput "  2) Full Upgrade - Runs full upgrade for your package manager"
+        terminalOutput "  3) Show System Summary - Displays system stats and package info"
+        terminalOutput "  4) Help - Show this usage summary"
+        terminalOutput "  5) Exit - Quit the script"
+    fi
     pause
 }
 
@@ -330,32 +424,63 @@ function showHelp(){
 
 function showMenu(){
     clear
+    local pkgManager
+    pkgManager=$(detectPackageManager)
     terminalOutput "======================================"
-    terminalOutput " Ubuntu Update Manager - v$SCRIPT_VERSION"
+    if [ "$pkgManager" = "apt" ]; then
+        terminalOutput " Ubuntu Update Manager - v$SCRIPT_VERSION"
+    else
+        terminalOutput " System Update Manager - v$SCRIPT_VERSION"
+    fi
     terminalOutput "======================================"
     terminalOutput "1) Standard Update & Cleanup"
-    terminalOutput "2) Upgrade to Latest Ubuntu Version"
-    terminalOutput "3) Full Upgrade"
-    terminalOutput "4) Show System Summary"
-    terminalOutput "5) Help"
-    terminalOutput "6) Exit"
-    terminalOutput "======================================"
-    read -p "Choose an option [1-6]: " choice
-
-    if ! [[ "$choice" =~ ^[1-6]$ ]]; then
-        terminalOutput "Invalid input. Please enter a number between 1 and 6."
-        sleep 2
-        return
+    if [ "$pkgManager" = "apt" ]; then
+        terminalOutput "2) Upgrade to Latest Ubuntu Version"
+        terminalOutput "3) Full Upgrade"
+        terminalOutput "4) Show System Summary"
+        terminalOutput "5) Help"
+        terminalOutput "6) Exit"
+    else
+        terminalOutput "2) Full Upgrade"
+        terminalOutput "3) Show System Summary"
+        terminalOutput "4) Help"
+        terminalOutput "5) Exit"
     fi
+    terminalOutput "======================================"
+    if [ "$pkgManager" = "apt" ]; then
+        promptInput "Choose an option [1-6]: " choice
 
-    case $choice in
-        1) runUpdate ;;
-        2) ubuntuUpdateOS ;;
-        3) ubuntuFullUpgrade ;;
-        4) showSystemSummary ;;
-        5) showHelp ;;
-        6) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
-    esac
+        if ! [[ "$choice" =~ ^[1-6]$ ]]; then
+            terminalOutput "Invalid input. Please enter a number between 1 and 6."
+            sleep 2
+            return
+        fi
+
+        case $choice in
+            1) runUpdate ;;
+            2) ubuntuUpdateOS ;;
+            3) ubuntuFullUpgrade ;;
+            4) showSystemSummary ;;
+            5) showHelp ;;
+            6) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
+        esac
+    else
+        promptInput "Choose an option [1-5]: " choice
+
+        if ! [[ "$choice" =~ ^[1-5]$ ]]; then
+            terminalOutput "Invalid input. Please enter a number between 1 and 5."
+            sleep 2
+            return
+        fi
+
+        case $choice in
+            1) runUpdate ;;
+            2) ubuntuFullUpgrade ;;
+            3) showSystemSummary ;;
+            4) showHelp ;;
+            5) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
+        esac
+    fi
 }
 
 ################################################################################################
