@@ -481,8 +481,9 @@ function setGitIdentityMenu() {
 
 function cloneGitHubRepo() {
     terminalOutput "======================================"
-    terminalOutput " GitHub HTTPS Clone"
+    terminalOutput " GitHub Repo Clone (Beginner Friendly)"
     terminalOutput "======================================"
+    terminalOutput "This will copy a GitHub repository to your computer."
     terminalOutput "Tip: Type 'q' at any prompt to cancel."
 
     if ! command -v git >/dev/null 2>&1; then
@@ -499,11 +500,105 @@ function cloneGitHubRepo() {
     local repoName=""
     local defaultDir=""
     local targetDir=""
+    local targetPath=""
     local confirmAction=""
     local action=""
+    local targetUser="$USER"
+    local targetHome="$HOME"
+    local cloneMethod=""
+
+    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+        targetUser="$SUDO_USER"
+        targetHome=$(getent passwd "$targetUser" | cut -d: -f6)
+        if [ -z "$targetHome" ]; then
+            targetHome="$HOME"
+        fi
+    fi
+
+    terminalOutput "First, choose how to sign in to GitHub:"
+    terminalOutput "  1) HTTPS (recommended for beginners)"
+    terminalOutput "     - You will use a Personal Access Token (PAT) instead of a password."
+    terminalOutput "     - Create one at: https://github.com/settings/tokens/new"
+    terminalOutput "     - For private repos, select 'repo'. For public only, 'public_repo'."
+    terminalOutput "  2) SSH (advanced)"
+    terminalOutput "     - You need an SSH key added to GitHub first."
+    terminalOutput "     - Docs: https://docs.github.com/authentication/connecting-to-github-with-ssh"
+    terminalOutput ""
 
     while true; do
-        promptInput "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+        promptInput "Select [1-2]: " cloneMethod
+
+        if [ "$cloneMethod" = "q" ] || [ "$cloneMethod" = "Q" ]; then
+            terminalOutput "Canceled."
+            return 0
+        fi
+
+        if [ "$cloneMethod" = "1" ] || [ "$cloneMethod" = "2" ]; then
+            break
+        fi
+
+        terminalOutput "Invalid option. Please enter 1 or 2."
+    done
+
+    if [ "$cloneMethod" = "2" ]; then
+        terminalOutput ""
+        terminalOutput "SSH key setup:"
+        terminalOutput "- GitHub needs your public key before SSH will work."
+        terminalOutput "- We can generate a key now and show it to you."
+
+        if ! command -v ssh-keygen >/dev/null 2>&1; then
+            ensurePackages openssh-client
+        fi
+
+        local sshDir="$targetHome/.ssh"
+        local sshKey="$sshDir/id_ed25519_github"
+        local sshPub="$sshKey.pub"
+        local existingPub=""
+
+        for key in "$sshDir"/*.pub; do
+            if [ -f "$key" ]; then
+                existingPub="$key"
+                break
+            fi
+        done
+
+        if [ -n "$existingPub" ]; then
+            terminalOutput "Found an existing SSH public key. We will reuse it."
+            sshPub="$existingPub"
+        elif confirm "Generate a new SSH key now?"; then
+            sudo -u "$targetUser" env HOME="$targetHome" mkdir -p "$sshDir"
+            sudo -u "$targetUser" env HOME="$targetHome" ssh-keygen -t ed25519 -C "$targetUser@$(hostname)" -f "$sshKey" -N ""
+            sudo -u "$targetUser" env HOME="$targetHome" chmod 700 "$sshDir"
+            sudo -u "$targetUser" env HOME="$targetHome" chmod 600 "$sshKey" 2>/dev/null || true
+            sudo -u "$targetUser" env HOME="$targetHome" chmod 644 "$sshPub" 2>/dev/null || true
+        else
+            terminalOutput "Skipping SSH key generation. SSH clone may fail without a key."
+        fi
+
+        if [ -f "$sshPub" ]; then
+            terminalOutput ""
+            terminalOutput "Add this public key to GitHub (Settings > SSH and GPG keys):"
+            terminalOutput "https://github.com/settings/ssh/new"
+            terminalOutput ""
+            terminalOutput "----- BEGIN PUBLIC KEY -----"
+            cat "$sshPub"
+            terminalOutput "----- END PUBLIC KEY -----"
+            terminalOutput ""
+        fi
+    fi
+
+    while true; do
+        if [ "$cloneMethod" = "1" ]; then
+            terminalOutput ""
+            terminalOutput "Step 1: Paste the HTTPS URL of the repo."
+            terminalOutput "You can copy it from the green 'Code' button on GitHub (HTTPS tab)."
+            promptInput "HTTPS URL: " repoUrl
+        else
+            terminalOutput ""
+            terminalOutput "Step 1: Paste the SSH URL of the repo."
+            terminalOutput "You can copy it from the green 'Code' button on GitHub (SSH tab)."
+            promptInput "SSH URL: " repoUrl
+        fi
 
         if [ "$repoUrl" = "q" ] || [ "$repoUrl" = "Q" ]; then
             terminalOutput "Canceled."
@@ -515,9 +610,16 @@ function cloneGitHubRepo() {
             continue
         fi
 
-        if [[ "$repoUrl" != https://* ]]; then
-            terminalOutput "URL must start with https://"
-            continue
+        if [ "$cloneMethod" = "1" ]; then
+            if [[ "$repoUrl" != https://* ]]; then
+                terminalOutput "URL must start with https://"
+                continue
+            fi
+        else
+            if [[ "$repoUrl" != git@* && "$repoUrl" != ssh://* ]]; then
+                terminalOutput "URL must be an SSH format (git@... or ssh://...)"
+                continue
+            fi
         fi
 
         break
@@ -544,8 +646,14 @@ function cloneGitHubRepo() {
             targetDir="$defaultDir"
         fi
 
-        if [ -e "$targetDir" ]; then
-            terminalOutput "Target path '$targetDir' already exists. Choose another folder or 'q' to cancel."
+        if [[ "$targetDir" != /* ]]; then
+            targetPath="$targetHome/$targetDir"
+        else
+            targetPath="$targetDir"
+        fi
+
+        if [ -e "$targetPath" ]; then
+            terminalOutput "Target path '$targetPath' already exists. Choose another folder or 'q' to cancel."
             targetDir=""
             continue
         fi
@@ -553,9 +661,21 @@ function cloneGitHubRepo() {
         break
     done
 
+    terminalOutput ""
+    terminalOutput "Step 2: Choose where to save it."
+    terminalOutput "Default is your home folder with the repo name."
+    terminalOutput ""
     terminalOutput "About to clone:"
     terminalOutput "  URL:  $repoUrl"
-    terminalOutput "  Dest: $targetDir"
+    terminalOutput "  Dest: $targetPath"
+    if [ "$cloneMethod" = "1" ]; then
+        terminalOutput ""
+        terminalOutput "Step 3: When Git asks for login:"
+        terminalOutput "- Username: your GitHub username"
+        terminalOutput "- Password: your GitHub Personal Access Token (PAT)"
+        terminalOutput "If you do not have a PAT yet, create one here:"
+        terminalOutput "  https://github.com/settings/tokens/new"
+    fi
 
     while true; do
         promptInput "Continue? [y/N]: " confirmAction
@@ -564,10 +684,20 @@ function cloneGitHubRepo() {
             return 0
         fi
 
-        if git clone "$repoUrl" "$targetDir"; then
+        if [ "$targetUser" != "$USER" ]; then
+            if sudo -u "$targetUser" env HOME="$targetHome" git clone "$repoUrl" "$targetPath"; then
+                terminalOutput "Clone complete."
+                terminalOutput "Next steps:"
+                terminalOutput "  cd \"$targetPath\""
+                terminalOutput "  git status"
+                terminalOutput ""
+                terminalOutput "Tip: If prompted for credentials, use a GitHub token or sign in via VS Code."
+                return 0
+            fi
+        elif git clone "$repoUrl" "$targetPath"; then
             terminalOutput "Clone complete."
             terminalOutput "Next steps:"
-            terminalOutput "  cd \"$targetDir\""
+            terminalOutput "  cd \"$targetPath\""
             terminalOutput "  git status"
             terminalOutput ""
             terminalOutput "Tip: If prompted for credentials, use a GitHub token or sign in via VS Code."
@@ -586,7 +716,11 @@ function cloneGitHubRepo() {
             2)
                 repoUrl=""
                 while true; do
-                    promptInput "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+                    if [ "$cloneMethod" = "1" ]; then
+                        promptInput "Enter the HTTPS repo URL (e.g., https://github.com/owner/repo.git): " repoUrl
+                    else
+                        promptInput "Enter the SSH repo URL (e.g., git@github.com:owner/repo.git): " repoUrl
+                    fi
                     if [ "$repoUrl" = "q" ] || [ "$repoUrl" = "Q" ]; then
                         terminalOutput "Canceled."
                         return 0
@@ -595,9 +729,16 @@ function cloneGitHubRepo() {
                         terminalOutput "Please enter a URL or 'q' to cancel."
                         continue
                     fi
-                    if [[ "$repoUrl" != https://* ]]; then
-                        terminalOutput "URL must start with https://"
-                        continue
+                    if [ "$cloneMethod" = "1" ]; then
+                        if [[ "$repoUrl" != https://* ]]; then
+                            terminalOutput "URL must start with https://"
+                            continue
+                        fi
+                    else
+                        if [[ "$repoUrl" != git@* && "$repoUrl" != ssh://* ]]; then
+                            terminalOutput "URL must be an SSH format (git@... or ssh://...)"
+                            continue
+                        fi
                     fi
                     break
                 done
@@ -610,6 +751,28 @@ function cloneGitHubRepo() {
                 fi
                 defaultDir="$repoName"
                 targetDir=""
+                targetPath=""
+                while true; do
+                    promptInput "Target folder [${defaultDir}]: " targetDir
+                    if [ "$targetDir" = "q" ] || [ "$targetDir" = "Q" ]; then
+                        terminalOutput "Canceled."
+                        return 0
+                    fi
+                    if [ -z "$targetDir" ]; then
+                        targetDir="$defaultDir"
+                    fi
+                    if [[ "$targetDir" != /* ]]; then
+                        targetPath="$targetHome/$targetDir"
+                    else
+                        targetPath="$targetDir"
+                    fi
+                    if [ -e "$targetPath" ]; then
+                        terminalOutput "Target path '$targetPath' already exists. Choose another folder or 'q' to cancel."
+                        targetDir=""
+                        continue
+                    fi
+                    break
+                done
                 ;;
             3)
                 targetDir=""
@@ -622,8 +785,13 @@ function cloneGitHubRepo() {
                     if [ -z "$targetDir" ]; then
                         targetDir="$defaultDir"
                     fi
-                    if [ -e "$targetDir" ]; then
-                        terminalOutput "Target path '$targetDir' already exists. Choose another folder or 'q' to cancel."
+                    if [[ "$targetDir" != /* ]]; then
+                        targetPath="$targetHome/$targetDir"
+                    else
+                        targetPath="$targetDir"
+                    fi
+                    if [ -e "$targetPath" ]; then
+                        terminalOutput "Target path '$targetPath' already exists. Choose another folder or 'q' to cancel."
                         targetDir=""
                         continue
                     fi
