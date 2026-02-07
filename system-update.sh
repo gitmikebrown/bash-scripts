@@ -127,6 +127,9 @@ function checkRoot() {
 
 #################################################################################################
 #### Quiet Mode Handling
+    # Ensure script is run with sudo/root privileges
+    checkRoot
+
 #################################################################################################
 #TODO: run all output through this function to suppress if quiet mode is enabled.
 
@@ -186,7 +189,6 @@ function showSystemSummary(){
     fi
 
     terminalOutput "======================================"
-    pause
 }
 
 ################################################################################################
@@ -315,8 +317,9 @@ function showHelp(){
     terminalOutput "  1) Standard Update & Cleanup - Runs apt update/upgrade and cleanup commands"
     terminalOutput "  2) Upgrade to Latest Ubuntu Version - Uses do-release-upgrade for LTS upgrades"
     terminalOutput "  3) Full Upgrade - Runs apt full-upgrade"
-    terminalOutput "  4) Help - Show this usage summary"
-    terminalOutput "  5) Exit - Quit the script"
+    terminalOutput "  4) Show System Summary - Displays system stats and package info"
+    terminalOutput "  5) Help - Show this usage summary"
+    terminalOutput "  6) Exit - Quit the script"
     pause
 }
 
@@ -332,13 +335,14 @@ function showMenu(){
     terminalOutput "1) Standard Update & Cleanup"
     terminalOutput "2) Upgrade to Latest Ubuntu Version"
     terminalOutput "3) Full Upgrade"
-    terminalOutput "4) Help"
-    terminalOutput "5) Exit"
+    terminalOutput "4) Show System Summary"
+    terminalOutput "5) Help"
+    terminalOutput "6) Exit"
     terminalOutput "======================================"
-    read -p "Choose an option [1-5]: " choice
+    read -p "Choose an option [1-6]: " choice
 
-    if ! [[ "$choice" =~ ^[1-5]$ ]]; then
-        terminalOutput "Invalid input. Please enter a number between 1 and 5."
+    if ! [[ "$choice" =~ ^[1-6]$ ]]; then
+        terminalOutput "Invalid input. Please enter a number between 1 and 6."
         sleep 2
         return
     fi
@@ -347,8 +351,9 @@ function showMenu(){
         1) runUpdate ;;
         2) ubuntuUpdateOS ;;
         3) ubuntuFullUpgrade ;;
-        4) showHelp ;;
-        5) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
+        4) showSystemSummary ;;
+        5) showHelp ;;
+        6) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
     esac
 }
 
@@ -357,6 +362,8 @@ function showMenu(){
 ################################################################################################
 
 
+# Ensure script is run with sudo/root privileges
+checkRoot
 
 if [[ "$1" == "--update-only" ]]; then
     QUIET_MODE=true
@@ -369,7 +376,6 @@ elif [[ "$1" == "--ubuntuUpdateOS" ]]; then
     ubuntuUpdateOS
     exit 0
 else
-    showSystemSummary
     while true; do showMenu; done
 fi
 

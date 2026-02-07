@@ -148,6 +148,13 @@ function setDistributionGroups() {
 #### Utility Functions
 ################################################################################################
 
+function checkRoot() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "Please run as root or use sudo."
+        exit 1
+    fi
+}
+
 function showSystemInfo() {
     echo "========================================"
     echo " System Groups Management Tool v2.0.0"
@@ -627,6 +634,9 @@ function showMenu() {
 ################################################################################################
 #### Main Execution
 ################################################################################################
+
+# Ensure script is run with sudo/root privileges
+checkRoot
 
 # Parse command line arguments
 parseArguments "$@"

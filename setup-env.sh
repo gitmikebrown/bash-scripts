@@ -183,7 +183,7 @@ function terminalOutput() {
         elif [[ "$text" =~ ^\ (Installing|Installed|Dev\ Environment\ Setup|Database\ Setup|Help) ]]; then
             printf "%b\n" "${COLOR_GREEN}${text}${COLOR_RESET}"
         else
-            echo "$text"
+            printf "%b\n" "$text"
         fi
     fi
 }
@@ -1555,8 +1555,8 @@ function showHelp(){
     terminalOutput "  20) Install Postman CLI        - Install Postman CLI"
     terminalOutput "  21) Install All Tools          - Install everything at once"
     terminalOutput "  22) Show Installed Versions    - Display versions of installed tools"
-    terminalOutput "  23) Help                       - Show this help message"
-    terminalOutput "  24) Clone GitHub Repo (HTTPS)  - Clone a GitHub repository"
+    terminalOutput "  23) Clone GitHub Repo (HTTPS)  - Clone a GitHub repository"
+    terminalOutput "  24) Help                       - Show this help message"
     terminalOutput "  0)  Exit                       - Quit the script"
     pause
 }
@@ -1596,8 +1596,8 @@ function showMenu(){
     terminalOutput "20) Install Postman CLI"
     terminalOutput "21) Install All Tools"
     terminalOutput "22) Show Installed Versions"
-    terminalOutput "23) Help"
-    terminalOutput "24) Clone GitHub Repo (HTTPS)"
+    terminalOutput "23) Clone GitHub Repo (HTTPS)"
+    terminalOutput "24) Help"
     terminalOutput "0)  Exit"
     terminalOutput "======================================"
     terminalOutput "Tip: Enter one or more numbers separated by spaces (e.g., 3 5 9 11 19)."
@@ -1641,8 +1641,8 @@ function showMenu(){
             20) installPostman ;;
             21) installAll ;;
             22) showVersions ;;
-            23) showHelp ;;
-            24) cloneGitHubRepo ;;
+            23) cloneGitHubRepo ;;
+            24) showHelp ;;
             0) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
         esac
     done

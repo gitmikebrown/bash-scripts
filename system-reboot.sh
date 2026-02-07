@@ -21,6 +21,13 @@
 #### Functions
 ################################################################################################
 
+function checkRoot() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "Please run as root or use sudo."
+        exit 1
+    fi
+}
+
 function showUsage() {
     echo "====================================="
     echo " System Restart Manager v2.0.0"
@@ -364,6 +371,9 @@ function systemReboot() {
 ################################################################################################
 #### Main Execution
 ################################################################################################
+
+# Ensure script is run with sudo/root privileges
+checkRoot
 
 # Call the main function with all arguments
 systemReboot "$@"
