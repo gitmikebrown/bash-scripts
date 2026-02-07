@@ -139,7 +139,7 @@ function log() {
 
 function terminalOutput() {
     if [ "$QUIET_MODE" = false ]; then
-        echo "$1"
+        printf "%b\n" "$1"
     fi
 }
 

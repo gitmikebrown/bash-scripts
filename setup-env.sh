@@ -1601,7 +1601,8 @@ function showMenu(){
     terminalOutput "0)  Exit"
     terminalOutput "======================================"
     terminalOutput "Tip: Enter one or more numbers separated by spaces (e.g., 3 5 9 11 19)."
-    read -p "${YELLOW}Choose option(s) [0-24] (space-separated): ${RESET}" -a choices
+    printf "%b" "${YELLOW}Choose option(s) [0-24] (space-separated): ${RESET}"
+    read -r -a choices
 
     if [ "${#choices[@]}" -eq 0 ]; then
         terminalOutput "Invalid input. Please enter one or more numbers between 0 and 24."
