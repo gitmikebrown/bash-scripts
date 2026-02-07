@@ -1,7 +1,7 @@
 #!/bin/bash
 # File: setup-env.sh
 # Author: Michael Brown
-# Version: 1.0.2
+# Version: 1.1.0
 # Date: February 6, 2026
 # Description: Menu-driven development environment setup script for Ubuntu/Debian systems
 #              Installs and configures common dev tools including Python, Node.js, Git, curl, wget,
@@ -98,7 +98,7 @@
 ################################################################################################
 
 # Define script version
-SCRIPT_VERSION="1.0.2"
+SCRIPT_VERSION="1.1.0"
 
 # Enable or disable logging (true/false)
 LOGGING_ENABLED=false
@@ -120,6 +120,10 @@ DETECTED_PKG_MANAGER=""
 # Terminal colors
 COLOR_GREEN="\033[0;32m"
 COLOR_RED="\033[0;31m"
+COLOR_BLUE="\033[0;34m"
+COLOR_PURPLE="\033[0;35m"
+COLOR_YELLOW="\033[0;33m"
+COLOR_GRAY="\033[0;90m"
 COLOR_RESET="\033[0m"
 
 ################################################################################################
@@ -196,7 +200,8 @@ function pause(){
     if [ "$NON_INTERACTIVE" = true ]; then
         return
     fi
-    read -p "Press [Enter] to return to the menu..."
+    local prompt="${1:-Press [Enter] to return to the menu...}"
+    read -p "$prompt"
 }
 
 function confirm(){
@@ -1364,153 +1369,153 @@ function installAll() {
     pause
 }
 
+function printGroupHeader(){
+    local title="$1"
+    terminalOutput "${COLOR_BLUE}----- ${title} -----${COLOR_RESET}"
+}
+
+function printStatusLine(){
+    local label="$1"
+    local value="$2"
+    local installed="$3"
+    local tabs="${4:-2}"
+    local displayLabel="${COLOR_PURPLE}${label}${COLOR_RESET}"
+    local displayValue="$value"
+    if [ "$installed" = "1" ]; then
+        displayValue="${COLOR_YELLOW}${value}${COLOR_RESET}"
+    else
+        displayValue="${COLOR_GRAY}${value}${COLOR_RESET}"
+    fi
+    if [ "$tabs" -eq 0 ]; then
+        printf "%b %b\n" "$displayLabel" "$displayValue"
+    elif [ "$tabs" -eq 1 ]; then
+        printf "%b\t%b\n" "$displayLabel" "$displayValue"
+    else
+        printf "%b\t\t%b\n" "$displayLabel" "$displayValue"
+    fi
+}
+
 function showVersions() {
+    clear
     terminalOutput "======================================"
     terminalOutput " Installed Tool Versions"
     terminalOutput "======================================"
-    
     terminalOutput ""
-    terminalOutput "--- Python ---"
+    printGroupHeader "Language Packages"
     if command -v python3 >/dev/null 2>&1; then
-        python3 --version
-        if command -v pip3 >/dev/null 2>&1; then
-            pip3 --version
-        else
-            terminalOutput "pip3: Not installed"
-        fi
+        printStatusLine "Python->" "$(python3 --version)" 1 1
     else
-        terminalOutput "Python: Not installed"
+        printStatusLine "Python->" "Python: Not installed" 0
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- Node.js ---"
+    if command -v pip3 >/dev/null 2>&1; then
+        printStatusLine "Python->" "$(pip3 --version)" 1 1
+    else
+        printStatusLine "Python->" "pip3: Not installed" 0 1
+    fi
     if command -v node >/dev/null 2>&1; then
-        node --version
-        npm --version
+        printStatusLine "Node.js->" "$(node --version)" 1
     else
-        terminalOutput "Node.js: Not installed"
+        printStatusLine "Node.js->" "Node.js: Not installed" 0 1
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- Git ---"
-    if command -v git >/dev/null 2>&1; then
-        git --version
-    else
-        terminalOutput "Git: Not installed"
-    fi
-    
-    terminalOutput ""
-    terminalOutput "--- curl ---"
-    if command -v curl >/dev/null 2>&1; then
-        curl --version | head -n 1
-    else
-        terminalOutput "curl: Not installed"
-    fi
-    
-    terminalOutput ""
-    terminalOutput "--- make ---"
-    if command -v make >/dev/null 2>&1; then
-        make --version | head -n 1
-        gcc --version | head -n 1
-    else
-        terminalOutput "make: Not installed"
-    fi
-    
-    terminalOutput ""
-    terminalOutput "--- Docker ---"
-    if command -v docker >/dev/null 2>&1; then
-        docker --version
-        docker compose version
-    else
-        terminalOutput "Docker: Not installed"
-    fi
-    
-    terminalOutput ""
-    terminalOutput "--- zip ---"
-    if command -v zip >/dev/null 2>&1; then
-        zip --version | head -n 2
-    else
-        terminalOutput "zip: Not installed"
-    fi
-    
-    terminalOutput ""
-    terminalOutput "--- Golang ---"
     if command -v go >/dev/null 2>&1; then
-        go version
+        printStatusLine "Golang->" "$(go version)" 1
     else
-        terminalOutput "Golang: Not installed"
+        printStatusLine "Golang->" "Golang: Not installed" 0 1
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- PHP ---"
     if command -v php >/dev/null 2>&1; then
-        php --version | head -n 1
+        printStatusLine "PHP->" "$(php --version | head -n 1)" 1
     else
-        terminalOutput "PHP: Not installed"
+        printStatusLine "PHP->" "PHP: Not installed" 0
     fi
-    
+
     terminalOutput ""
-    terminalOutput "--- wget ---"
-    if command -v wget >/dev/null 2>&1; then
-        wget --version | head -n 1
+    printGroupHeader "Build Tools"
+    if command -v make >/dev/null 2>&1; then
+        printStatusLine "Makefile->" "$(make --version | head -n 1)" 1
     else
-        terminalOutput "wget: Not installed"
+        printStatusLine "Makefile->" "make: Not installed" 0 1
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- Docker Compose ---"
-    if command -v docker-compose >/dev/null 2>&1; then
-        docker-compose --version
+    if command -v gcc >/dev/null 2>&1; then
+        printStatusLine "GCC->" "$(gcc --version | head -n 1)" 1
     else
-        terminalOutput "Docker Compose: Not installed"
+        printStatusLine "GCC->" "gcc: Not installed" 0
     fi
-    
+
     terminalOutput ""
-    terminalOutput "--- AWS CLI ---"
+    printGroupHeader "Containers"
+    if command -v docker >/dev/null 2>&1; then
+        printStatusLine "Docker->" "$(docker --version)" 1
+    else
+        printStatusLine "Docker->" "Docker: Not installed" 0 1
+    fi
+    if docker compose version >/dev/null 2>&1; then
+        printStatusLine "Docker Compose->" "$(docker compose version)" 1
+    elif command -v docker-compose >/dev/null 2>&1; then
+        printStatusLine "Docker Compose->" "$(docker-compose --version)" 1
+    else
+        printStatusLine "Docker Compose->" "Docker Compose: Not installed" 0 0
+    fi
+
+    terminalOutput ""
+    printGroupHeader "Cloud"
     if command -v aws >/dev/null 2>&1; then
-        aws --version
+        printStatusLine "AWS->" "$(aws --version 2>&1)" 1
     else
-        terminalOutput "AWS CLI: Not installed"
+        printStatusLine "AWS->" "AWS CLI: Not installed" 0
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- Azure CLI ---"
     if command -v az >/dev/null 2>&1; then
-        az version --output tsv | head -n 1
+        printStatusLine "Azure->" "$(az version --output tsv | head -n 1)" 1
     else
-        terminalOutput "Azure CLI: Not installed"
+        printStatusLine "Azure->" "Azure CLI: Not installed" 0
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- Google Cloud SDK ---"
     if command -v gcloud >/dev/null 2>&1; then
-        gcloud version | head -n 1
+        printStatusLine "Google SDK->" "$(gcloud version | head -n 1)" 1
     else
-        terminalOutput "Google Cloud SDK: Not installed"
+        printStatusLine "Google SDK->" "Google Cloud SDK: Not installed" 0 1
     fi
-    
-    terminalOutput ""
-    terminalOutput "--- Terraform ---"
     if command -v terraform >/dev/null 2>&1; then
-        terraform --version | head -n 1
+        printStatusLine "Terraform->" "$(terraform --version | head -n 1)" 1
     else
-        terminalOutput "Terraform: Not installed"
+        printStatusLine "Terraform->" "Terraform: Not installed" 0 1
     fi
 
     terminalOutput ""
-    terminalOutput "--- OpenSSL ---"
+    printGroupHeader "File Management"
+    if command -v wget >/dev/null 2>&1; then
+        printStatusLine "wget->" "$(wget --version | head -n 1)" 1
+    else
+        printStatusLine "wget->" "wget: Not installed" 0
+    fi
+    if command -v zip >/dev/null 2>&1; then
+        printStatusLine "zip->" "$(zip --version | head -n 1)" 1
+    else
+        printStatusLine "zip->" "zip: Not installed" 0
+    fi
+    if command -v git >/dev/null 2>&1; then
+        printStatusLine "Git->" "$(git --version)" 1
+    else
+        printStatusLine "Git->" "Git: Not installed" 0
+    fi
+    if command -v curl >/dev/null 2>&1; then
+        printStatusLine "curl->" "$(curl --version | head -n 1)" 1
+    else
+        printStatusLine "curl->" "curl: Not installed" 0
+    fi
+
+    terminalOutput ""
+    printGroupHeader "Key Management"
     if command -v openssl >/dev/null 2>&1; then
-        openssl version
+        printStatusLine "OpenSSL->" "$(openssl version)" 1 1
     else
-        terminalOutput "OpenSSL: Not installed"
+        printStatusLine "OpenSSL->" "OpenSSL: Not installed" 0
     fi
 
     terminalOutput ""
-    terminalOutput "--- Postman CLI ---"
+    printGroupHeader "API Management"
     if command -v postman >/dev/null 2>&1; then
-        postman --version
+        printStatusLine "Postman CLI->" "$(postman --version)" 1
     else
-        terminalOutput "Postman CLI: Not installed"
+        printStatusLine "Postman CLI->" "Postman CLI: Not installed" 0 1
     fi
     
     terminalOutput "======================================"
@@ -1522,15 +1527,9 @@ function showVersions() {
 ################################################################################################
 
 function showHelp(){
+    local mode="$1"
+    clear
     terminalOutput "Development Environment Setup Script - Version $SCRIPT_VERSION"
-    terminalOutput ""
-    terminalOutput "Usage: ./setup-env.sh [OPTION]"
-    terminalOutput ""
-    terminalOutput "  --github-clone         Clone a GitHub repo via HTTPS"
-    terminalOutput "  --install-postman        Install Postman CLI"
-    terminalOutput "  --system-update          Run system update and cleanup"
-    terminalOutput "  --install-packages       Install a list of packages (space-separated)"
-    terminalOutput "  --help                   Show this help message"
     terminalOutput ""
     terminalOutput "Menu Options (enter one or more numbers separated by spaces, e.g., 3 5 9 11 19):"
     terminalOutput "  1)  Install Python             - Python 3, pip, and development tools"
@@ -1554,10 +1553,56 @@ function showHelp(){
     terminalOutput "  19) Install Vim                - Install Vim"
     terminalOutput "  20) Install Postman CLI        - Install Postman CLI"
     terminalOutput "  21) Install All Tools          - Install everything at once"
-    terminalOutput "  22) Show Installed Versions    - Display versions of installed tools"
-    terminalOutput "  23) Clone GitHub Repo (HTTPS)  - Clone a GitHub repository"
-    terminalOutput "  24) Help                       - Show this help message"
+    terminalOutput "  22) Clone GitHub Repo (HTTPS)  - Clone a GitHub repository"
+    terminalOutput "  23) Show Installed Versions    - Display versions of installed tools"
+    terminalOutput "  24) CLI Options                - Show command line options"
+    terminalOutput "  25) Help                       - Show menu options"
     terminalOutput "  0)  Exit                       - Quit the script"
+    if [ "$mode" = "exit" ]; then
+        pause "Press [Enter] to exit..."
+        exit 0
+    fi
+    pause
+}
+
+function showCliOptions(){
+    local mode="$1"
+    clear
+    terminalOutput "Development Environment Setup Script - Version $SCRIPT_VERSION"
+    terminalOutput ""
+    terminalOutput "Usage: ./setup-env.sh [OPTION]"
+    terminalOutput ""
+    terminalOutput "  --install-all               Install all development tools"
+    terminalOutput "  --install-python            Install Python"
+    terminalOutput "  --install-nodejs            Install Node.js"
+    terminalOutput "  --install-git               Install Git"
+    terminalOutput "  --install-curl              Install curl"
+    terminalOutput "  --install-wget              Install wget"
+    terminalOutput "  --install-make              Install make/build tools"
+    terminalOutput "  --install-docker            Install Docker"
+    terminalOutput "  --install-docker-compose    Install Docker Compose"
+    terminalOutput "  --install-zip               Install zip/unzip"
+    terminalOutput "  --install-golang            Install Golang"
+    terminalOutput "  --install-php               Install PHP"
+    terminalOutput "  --install-aws               Install AWS CLI"
+    terminalOutput "  --install-azure             Install Azure CLI"
+    terminalOutput "  --install-gcloud            Install Google Cloud SDK"
+    terminalOutput "  --install-terraform         Install Terraform"
+    terminalOutput "  --install-openssl           Install OpenSSL"
+    terminalOutput "  --install-openssh           Install OpenSSH server"
+    terminalOutput "  --install-composer          Install Composer"
+    terminalOutput "  --install-laravel-deps      Install Laravel dependencies"
+    terminalOutput "  --install-vim               Install Vim"
+    terminalOutput "  --install-postman           Install Postman CLI"
+    terminalOutput "  --github-clone              Clone a GitHub repo via HTTPS"
+    terminalOutput "  --system-update             Run system update and cleanup"
+    terminalOutput "  --install-packages          Install a list of packages (space-separated)"
+    terminalOutput "  --help                      Show this help message"
+
+    if [ "$mode" = "exit" ]; then
+        pause "Press [Enter] to exit..."
+        exit 0
+    fi
     pause
 }
 
@@ -1595,13 +1640,14 @@ function showMenu(){
     terminalOutput "19) Install Vim"
     terminalOutput "20) Install Postman CLI"
     terminalOutput "21) Install All Tools"
-    terminalOutput "22) Show Installed Versions"
-    terminalOutput "23) Clone GitHub Repo (HTTPS)"
-    terminalOutput "24) Help"
+    terminalOutput "22) Clone GitHub Repo (HTTPS)"
+    terminalOutput "23) Show Installed Versions"
+    terminalOutput "24) CLI Options"
+    terminalOutput "25) Help"
     terminalOutput "0)  Exit"
     terminalOutput "======================================"
     terminalOutput "Tip: Enter one or more numbers separated by spaces (e.g., 3 5 9 11 19)."
-    printf "%b" "${YELLOW}Choose option(s) [0-24] (space-separated): ${RESET}"
+    printf "%b" "${YELLOW}Choose option(s) [0-25] (space-separated): ${RESET}"
     read -r -a choices
 
     if [ "${#choices[@]}" -eq 0 ]; then
@@ -1611,8 +1657,8 @@ function showMenu(){
     fi
 
     for choice in "${choices[@]}"; do
-        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 24 ]; then
-            terminalOutput "Invalid input. Please enter numbers between 0 and 24."
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -gt 25 ]; then
+            terminalOutput "Invalid input. Please enter numbers between 0 and 25."
             sleep 2
             return
         fi
@@ -1641,9 +1687,10 @@ function showMenu(){
             19) installVim ;;
             20) installPostman ;;
             21) installAll ;;
-            22) showVersions ;;
-            23) cloneGitHubRepo ;;
-            24) showHelp ;;
+            22) cloneGitHubRepo ;;
+            23) showVersions ;;
+            24) showCliOptions ;;
+            25) showHelp ;;
             0) terminalOutput "Exiting..."; log "Script exited by user"; exit 0 ;;
         esac
     done
@@ -1739,8 +1786,7 @@ elif [[ "$1" == "--install-packages" ]]; then
     installPackagesFromList "$@"
     exit 0
 elif [[ "$1" == "--help" ]]; then
-    showHelp
-    exit 0
+    showCliOptions "exit"
 else
     # Start interactive menu
     while true; do showMenu; done
